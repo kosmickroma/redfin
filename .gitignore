@@ -1,0 +1,6 @@
+docs/
+dcad_data/
+*.csv
+map.html
+__pycache__/
+*.pyc
