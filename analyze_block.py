@@ -90,6 +90,7 @@ print("Loading DCAD data...")
 acct   = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str)
 apprl  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str)
 res    = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str)
+land   = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str)
 
 # Get zip codes from Redfin pull
 redfin_zips = set(df_redfin['ZIP OR POSTAL CODE'].dropna().astype(str).str[:5].unique()) if 'ZIP OR POSTAL CODE' in df_redfin.columns else {'75229','75230'}
@@ -143,24 +144,37 @@ print(f"In bounding box after geocoding: {len(dcad_box)}")
 
 # ── Step 6: join values, flag on/off market ───────────────────────────────────
 
-dcad_box = dcad_box.merge(apprl[['ACCOUNT_NUM','LAND_VAL','IMPR_VAL','TOT_VAL']], on='ACCOUNT_NUM', how='left')
-dcad_box = dcad_box.merge(res[['ACCOUNT_NUM','YR_BUILT','TOT_LIVING_AREA_SF']], on='ACCOUNT_NUM', how='left')
-for col in ['LAND_VAL','IMPR_VAL','TOT_VAL','YR_BUILT','TOT_LIVING_AREA_SF','LAT','LNG']:
+land_cols = land.groupby('ACCOUNT_NUM').first()[['ZONING','FRONT_DIM','DEPTH_DIM','AREA_SIZE']].reset_index()
+dcad_box = dcad_box.merge(apprl[['ACCOUNT_NUM','LAND_VAL','IMPR_VAL','TOT_VAL','ISD_JURIS_DESC']], on='ACCOUNT_NUM', how='left')
+dcad_box = dcad_box.merge(res[['ACCOUNT_NUM','YR_BUILT','TOT_LIVING_AREA_SF','TOT_MAIN_SF']], on='ACCOUNT_NUM', how='left')
+dcad_box = dcad_box.merge(land_cols, on='ACCOUNT_NUM', how='left')
+for col in ['LAND_VAL','IMPR_VAL','TOT_VAL','YR_BUILT','TOT_LIVING_AREA_SF','TOT_MAIN_SF','LAT','LNG','FRONT_DIM','DEPTH_DIM','AREA_SIZE']:
     dcad_box[col] = pd.to_numeric(dcad_box[col], errors='coerce')
 
 dcad_box['PROPERTY_ADDRESS'] = (dcad_box['STREET_NUM'] + ' ' + dcad_box['FULL_STREET_NAME']).str.strip().str.upper()
 dcad_box['LAND_PCT']  = (dcad_box['LAND_VAL'] / dcad_box['TOT_VAL'] * 100).round(1)
 dcad_box['ON_REDFIN'] = dcad_box['PROPERTY_ADDRESS'].isin(redfin_addresses)
 
+# Google Maps link for spot checking — clickable in Excel/Sheets
+dcad_box['GOOGLE_MAPS'] = dcad_box.apply(
+    lambda r: f"https://maps.google.com/?q={str(r['STREET_NUM']).strip()}+{str(r['FULL_STREET_NAME']).strip().replace(' ', '+')},+Dallas+TX+{str(r['PROPERTY_ZIPCODE'])[:5]}",
+    axis=1
+)
+
 # ── Step 7: save CSV ──────────────────────────────────────────────────────────
 
 out = dcad_box[['PROPERTY_ADDRESS','ON_REDFIN','OWNER_NAME1','OWNER_ADDRESS_LINE1',
                 'OWNER_CITY','OWNER_STATE','OWNER_ZIPCODE',
-                'LAND_VAL','IMPR_VAL','TOT_VAL','LAND_PCT','YR_BUILT','TOT_LIVING_AREA_SF','LAT','LNG']].copy()
+                'LAND_VAL','IMPR_VAL','TOT_VAL','LAND_PCT','YR_BUILT',
+                'TOT_LIVING_AREA_SF','TOT_MAIN_SF',
+                'ZONING','AREA_SIZE','FRONT_DIM','DEPTH_DIM',
+                'ISD_JURIS_DESC','LAT','LNG','GOOGLE_MAPS']].copy()
 out.columns = ['Property Address','Listed on Redfin','Owner Name','Owner Mailing Address',
                'Owner City','Owner State','Owner Zip',
                'Land Value','Improvement Value','Total Value','Land % of Total',
-               'Year Built','Sq Ft','LAT','LNG']
+               'Year Built','Living Area (sq ft)','Total Structure Area (sq ft)',
+               'Zoning','Lot Size (sq ft)','Frontage (ft)','Depth (ft)',
+               'School District','LAT','LNG','Google Maps Link']
 out['Listed on Redfin'] = out['Listed on Redfin'].map({True:'YES', False:'NO'})
 out = out.sort_values('Property Address')
 
