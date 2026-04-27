@@ -11,3 +11,5 @@ __pycache__/
 map*.html
 BRIEFING.md
 .~lock.*
+redfin_url.txt
+redfin/

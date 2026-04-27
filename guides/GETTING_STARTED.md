@@ -158,10 +158,13 @@ Use this to analyze any specific block or shape you want.
 5. Go back to the map and pan or move it slightly — this fires new requests that will appear in the list
 6. Click any of the new requests that pop up
 7. Right-click the URL at the top of the panel and select **Copy link address**
-8. Switch back to the script window and press **Enter** — it reads the URL from your clipboard automatically, no pasting needed
-9. Give your run a label (e.g. `highland_park_block1`) — this becomes the filename
+8. **Save the URL to a file called `redfin_url.txt`** in the redfin folder
+   - Windows: Right-click in the folder, New > Text Document, paste the URL, save as `redfin_url.txt`
+   - Mac/Linux: Use any text editor, paste URL, save as `redfin_url.txt` in the redfin folder
+9. Switch back to the script, press **Enter** when prompted
+10. Give your run a label (e.g. `highland_park_block1`) — this becomes the filename
 
-The script extracts the coordinates automatically — you just paste the URL and go.
+The script reads the URL from the file and extracts the coordinates automatically. This avoids Windows terminal issues with special characters in URLs.
 
 ---
 

@@ -51,9 +51,12 @@ Use this to analyze any specific block or custom shape:
 4. Click the **Network** tab and type `gis` in the filter box
 5. Click the most recent request that appears in the list
 6. **Right-click the full URL** at the top of the panel and copy it
-7. Back in the script, type `2`, paste the full URL, and give the run a label
+7. **Save the URL to a text file called `redfin_url.txt`** in the same folder as the script
+   - Windows: Right-click in the redfin folder, New > Text Document, paste URL, save as `redfin_url.txt`
+   - Mac/Linux: Use any text editor, paste the URL, save as `redfin_url.txt`
+8. Back in the script, type `2` and press Enter
 
-The script pulls the coordinates out of the URL automatically — just paste and go.
+The script reads the URL from the file automatically — this avoids Windows terminal issues with special characters.
 
 ---
 

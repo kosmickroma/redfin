@@ -184,37 +184,33 @@ if choice == '2':
     print("  5. Click any of the new requests that pop up")
     print("  6. Right-click the URL at the top of the panel and COPY it")
     print("  7. Come back here and press Enter — the script will read it from your clipboard\n")
-    input("Press Enter once you have copied the URL...")
-    # Read from clipboard so the user never has to paste into the terminal.
-    # Pasting URLs with & into Windows CMD breaks even inside a running program —
-    # reading the clipboard directly avoids that entirely.
-    # Uses PowerShell on Windows (built-in), pbpaste on Mac, xclip/xsel on Linux.
-    import platform, subprocess
+    # Read URL from file to avoid terminal special character issues with &
+    # This is the most reliable method across all platforms
+    url_file = os.path.join(os.path.dirname(__file__), 'redfin_url.txt')
+
+    print(f"\n  >>> Save the URL to a file called: redfin_url.txt")
+    print(f"      (in the same folder as this script)")
+    print(f"\n  On Windows: Right-click in the folder, New > Text Document, paste URL, save as 'redfin_url.txt'")
+    print(f"  Or just paste it into any text editor and save to: {url_file}\n")
+
+    input("Press Enter once you've saved the URL to redfin_url.txt...")
+
     raw = None
-    system = platform.system()
-    try:
-        if system == 'Windows':
-            result = subprocess.run(['powershell', '-command', 'Get-Clipboard'],
-                                    capture_output=True, text=True)
-            raw = result.stdout.strip()
-        elif system == 'Darwin':
-            result = subprocess.run(['pbpaste'], capture_output=True, text=True)
-            raw = result.stdout.strip()
+    if os.path.exists(url_file):
+        with open(url_file, 'r', encoding='utf-8') as f:
+            raw = f.read().strip()
+        if raw and 'redfin' in raw.lower():
+            print("URL loaded from redfin_url.txt")
         else:
-            for cmd in [['xclip', '-selection', 'clipboard', '-o'], ['xsel', '--clipboard', '--output']]:
-                try:
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-                    if result.returncode == 0:
-                        raw = result.stdout.strip()
-                        break
-                except FileNotFoundError:
-                    continue
-    except Exception:
-        pass
-    if raw and 'redfin' in raw:
-        print("URL read from clipboard.")
-    else:
-        raw = input("Clipboard read failed — paste the URL manually: ").strip()
+            raw = None
+
+    if not raw:
+        print(f"\nERROR: Could not find or read {url_file}")
+        print("Make sure you:")
+        print("  1. Copied the full URL from DevTools")
+        print("  2. Saved it to a file named 'redfin_url.txt'")
+        print(f"  3. Placed it in: {os.path.dirname(__file__)}")
+        sys.exit()
     try:
         if 'user_poly=' in raw:
             poly_str = raw.split('user_poly=')[1].split('&')[0]
@@ -225,8 +221,10 @@ if choice == '2':
         lats = [float(p[1]) for p in pairs]
         MIN_LNG, MAX_LNG = min(lngs), max(lngs)
         MIN_LAT, MAX_LAT = min(lats), max(lats)
-    except (ValueError, IndexError):
-        print("\nCouldn't read the URL from clipboard — make sure you copied it before pressing Enter.")
+    except (ValueError, IndexError) as e:
+        print(f"\nERROR: Couldn't parse coordinates from the URL.")
+        print(f"Make sure the URL contains 'user_poly=' or is just the coordinate string.")
+        print(f"Debug info: {e}")
         sys.exit()
     label = input("Label for output files (e.g. 'oak_cliff_block1'): ").strip()
     if not label:
