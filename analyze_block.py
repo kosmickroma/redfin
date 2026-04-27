@@ -184,7 +184,8 @@ if choice == '2':
     print("  5. Right-click the URL at the top of the panel and copy the entire URL\n")
     raw = input("Paste the full Redfin URL here: ").strip()
     # Accept either a full Redfin URL (extracts user_poly automatically) or a raw
-    # user_poly string — handles both so the user just pastes whatever they have
+    # user_poly string — handles both so the user just pastes whatever they have.
+    # Quotes are stripped first in case Windows users wrapped the URL to escape &.
     try:
         if 'user_poly=' in raw:
             poly_str = raw.split('user_poly=')[1].split('&')[0]
@@ -196,7 +197,8 @@ if choice == '2':
         MIN_LNG, MAX_LNG = min(lngs), max(lngs)
         MIN_LAT, MAX_LAT = min(lats), max(lats)
     except (ValueError, IndexError):
-        print("Couldn't parse that — make sure you copied the full URL from the Network tab.")
+        print("\nCouldn't parse that URL.")
+        print("Windows users: try wrapping the URL in double quotes when pasting.")
         sys.exit()
     label = input("Label for output files (e.g. 'oak_cliff_block1'): ").strip()
     if not label:

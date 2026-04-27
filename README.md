@@ -7,6 +7,88 @@ each property, what it's worth, and whether it's listed anywhere.
 
 ---
 
+## Running It
+
+First, open a terminal in the `redfin` folder:
+- **Windows:** Open Command Prompt, then type `cd C:\path\to\redfin` (wherever you cloned it)
+- **Mac / Linux:** Open Terminal, then type `cd ~/redfin` (or wherever you cloned it)
+
+Then run:
+
+**Windows:** Double-click `run.bat` in the redfin folder
+
+**Mac / Linux:**
+```
+python3 analyze_block.py
+```
+
+---
+
+## How to Pick Your Area
+
+The script gives you two options:
+
+**Option 1 — Neighborhood name**
+
+Type `1` and enter a neighborhood. Built-in neighborhoods include:
+
+```
+Bishop Arts       Bluffview         Deep Ellum
+Devonshire        Far North Dallas  Highland Park
+Knox Henderson    Lake Highlands    Lakewood
+Lower Greenville  M Streets         North Dallas
+Oak Lawn          Preston Hollow    Turtle Creek
+University Park   Uptown            White Rock Lake
+```
+
+Spelling doesn't need to be exact — it will fuzzy-match.
+
+**Option 2 — Custom area from Redfin**
+
+Use this to analyze any specific block or custom shape:
+
+1. Go to **redfin.com** and navigate to the area you want
+2. Click the **draw tool** on the Redfin map and draw your shape
+3. Once your shape is drawn, press **F12** to open DevTools
+4. Click the **Network** tab and type `gis` in the filter box
+5. Click the most recent request that appears in the list
+6. **Right-click the full URL** at the top of the panel and copy it
+7. Back in the script, type `2`, paste the full URL, and give the run a label
+
+The script pulls the coordinates out of the URL automatically — just paste and go.
+
+---
+
+## Output Files
+
+Each run saves files in the `output/` folder:
+
+| File | What It Is |
+|---|---|
+| `block_analysis_[label].csv` | Full spreadsheet — open in Excel or Google Sheets |
+| `map_[label].html` | Interactive map — open in any browser |
+
+---
+
+## Reading the Output
+
+**To find teardown candidates:** Sort by **Land % of Total** descending.
+A property where land is 70–90%+ of the total value means the land is worth
+far more than the structure sitting on it. Combined with an old Year Built,
+that's the owner to call.
+
+**On/Off market:** Filter **Listed on Redfin** to `NO` to see only off-market
+properties — these are owners who aren't selling publicly and may not know
+anyone is looking.
+
+**Google Maps Link:** Click to open the property in Google Maps for a quick
+visual check of the lot, neighborhood context, and street view.
+
+**Sharing the map:** Drag the `map_[label].html` file to [netlify.com/drop](https://netlify.com/drop)
+to get a shareable link anyone can open in their browser.
+
+---
+
 ## What You Get
 
 A spreadsheet with one row per property in your target area:
@@ -25,25 +107,30 @@ A spreadsheet with one row per property in your target area:
 | Year Built | Age of structure |
 | Living Area (sq ft) | Interior square footage |
 | Total Structure Area (sq ft) | Full structure footprint |
+| State Code | Property type (e.g. Single Family Residences) |
 | Zoning | How the parcel is zoned |
 | Lot Size (sq ft) | Total lot area |
 | Frontage (ft) | Street frontage |
 | Depth (ft) | Lot depth |
 | School District | ISD serving the property |
 | Neighborhood Code | DCAD neighborhood classification |
-| Legal Description | Subdivision, block, and lot number |
+| Subdivision | Subdivision name |
+| Legal Description | Full legal description from county records |
 | Google Maps Link | One click to view the property in Google Maps |
 
-An interactive map (`map_[name].html`) is also saved — open it in any browser.
-Red pins = listed on Redfin. Blue pins = off market. Click any pin for details.
+The interactive map shows every property outlined on the actual parcel.
+Red = listed on Redfin. Blue = off market. Click any parcel for details.
 
 ---
 
-## Requirements
+## How Long Does It Take?
 
-- Python 3.9 or newer
-- Internet connection (for the Redfin pull)
-- DCAD data files (one-time download, ~500 MB — instructions below)
+| Step | Time |
+|---|---|
+| Loading parcel shapefile | 10–20 seconds (first time each run) |
+| Redfin pull (small area) | 30–60 seconds |
+| Redfin pull (full neighborhood) | 2–4 minutes |
+| DCAD join and output | A few seconds |
 
 ---
 
@@ -64,14 +151,14 @@ Red pins = listed on Redfin. Blue pins = off market. Click any pin for details.
 
 **Linux:**
 ```bash
-sudo apt install python3 python3-pip   # Ubuntu/Debian
+sudo apt install python3 python3-pip
 ```
 
 ---
 
 ### Step 2 — Download the code
 
-Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run:
+Open a terminal and run:
 
 ```
 git clone https://github.com/kosmickroma/redfin.git
@@ -89,12 +176,12 @@ If you don't have Git installed:
 
 Inside the `redfin` folder, run:
 
+**Windows:**
 ```
 pip install -r requirements.txt
 ```
 
-On Mac or Linux, use `pip3` if `pip` doesn't work:
-
+**Mac / Linux:**
 ```
 pip3 install -r requirements.txt
 ```
@@ -121,8 +208,7 @@ stays on your machine. DCAD updates it annually.
 
 ### Step 5 — Download DCAD parcel shapefile (one time)
 
-This gives every property its exact GPS location. Without it the script falls back
-to a less precise geocoder.
+This gives every property its exact GPS location on the map.
 
 1. Go to [dallascad.org/dataproducts.aspx](https://dallascad.org/dataproducts.aspx)
 2. Click **GIS Data Products** in the left navigation
@@ -149,100 +235,7 @@ redfin/
       PARCEL_GEOM.dbf
       PARCEL_GEOM.shx
       PARCEL_GEOM.prj
-      (other shapefile components)
 ```
-
----
-
-## Running It
-
-First, open a terminal in the `redfin` folder:
-- **Windows:** Open Command Prompt, then type `cd C:\path\to\redfin` (wherever you cloned it)
-- **Mac / Linux:** Open Terminal, then type `cd ~/redfin` (or wherever you cloned it)
-
-Then run:
-
-**Windows:**
-```
-python analyze_block.py
-```
-
-**Mac / Linux:**
-```
-python3 analyze_block.py
-```
-
----
-
-## How to Pick Your Area
-
-The script gives you two options:
-
-**Option 1 — Neighborhood name**
-
-Type `1` and enter a neighborhood. Built-in neighborhoods include:
-
-```
-Bluffview         Highland Park      Knox Henderson
-Lake Highlands    Lakewood           Lower Greenville
-M Streets         North Dallas       Oak Lawn
-Preston Hollow    Turtle Creek       University Park
-Uptown            White Rock Lake
-```
-
-Spelling doesn't need to be exact — it will fuzzy-match.
-
-**Option 2 — Custom area from Redfin**
-
-Use this to analyze any specific block or custom shape:
-
-1. Go to redfin.com and navigate to the area
-2. Press **F12** to open DevTools → click the **Network** tab → type `gis` in the filter box
-3. Click the draw tool on the Redfin map and draw your shape
-4. Click the request that appears in the Network tab
-5. In the URL, find the `user_poly=` parameter — those are your coordinates
-6. Back in the script, type `2`, paste the coordinates, and give the run a label
-
-You'll also be asked for a **label** — this becomes the output filename (e.g. `oak_cliff_block1`
-saves as `block_analysis_oak_cliff_block1.csv`).
-
----
-
-## Output Files
-
-Each run saves two files in the `redfin/` folder:
-
-| File | What It Is |
-|---|---|
-| `block_analysis_[label].csv` | Full spreadsheet — open in Excel or Google Sheets |
-| `map_[label].html` | Interactive map — double-click to open in any browser |
-
----
-
-## How Long Does It Take?
-
-| Step | Time |
-|---|---|
-| Loading parcel shapefile | 10–20 seconds (first time each run) |
-| Redfin pull (small area) | 30–60 seconds |
-| Redfin pull (full neighborhood) | 2–4 minutes |
-| DCAD join and output | A few seconds |
-
----
-
-## Reading the Output
-
-**To find teardown candidates:** Sort by **Land % of Total** descending.
-A property where land is 70–90%+ of the total value means the land is worth
-far more than the structure sitting on it. Combined with an old Year Built,
-that's the owner to call.
-
-**On/Off market:** Filter **Listed on Redfin** to `NO` to see only off-market
-properties — these are owners who aren't selling publicly and may not know
-anyone is looking.
-
-**Google Maps Link:** Click to open the property in Google Maps for a quick
-visual check of the lot, neighborhood context, and street view.
 
 ---
 
