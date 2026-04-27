@@ -182,35 +182,38 @@ if choice == '2':
     print("  3. Press F12 to open DevTools, click the Network tab, type 'gis' in the filter box")
     print("  4. Go back to the map and pan or move it slightly — new requests will appear in the list")
     print("  5. Click any of the new requests that pop up")
-    print("  6. Right-click the URL at the top of the panel and COPY it")
-    print("  7. Come back here and press Enter — the script will read it from your clipboard\n")
-    # Read URL from file to avoid terminal special character issues with &
-    # This is the most reliable method across all platforms
-    url_file = os.path.join(os.path.dirname(__file__), 'redfin_url.txt')
+    print("  6. Right-click the URL at the top of the panel and copy it")
+    print("  7. Open Notepad, paste the URL, and save it as any name (e.g. highland_park.txt)")
+    print("     in the redfin folder — then come back here\n")
+    # Read URL from a .txt file to avoid terminal special character issues with &.
+    # Users save the URL to any named .txt file in the redfin folder, then pick it from a list.
+    script_dir = os.path.dirname(__file__)
+    txt_files = [f for f in os.listdir(script_dir) if f.endswith('.txt')]
 
-    print(f"\n  >>> Save the URL to a file called: redfin_url.txt")
-    print(f"      (in the same folder as this script)")
-    print(f"\n  On Windows: Right-click in the folder, New > Text Document, paste URL, save as 'redfin_url.txt'")
-    print(f"  Or just paste it into any text editor and save to: {url_file}\n")
-
-    input("Press Enter once you've saved the URL to redfin_url.txt...")
-
-    raw = None
-    if os.path.exists(url_file):
-        with open(url_file, 'r', encoding='utf-8') as f:
-            raw = f.read().strip()
-        if raw and 'redfin' in raw.lower():
-            print("URL loaded from redfin_url.txt")
-        else:
-            raw = None
-
-    if not raw:
-        print(f"\nERROR: Could not find or read {url_file}")
-        print("Make sure you:")
-        print("  1. Copied the full URL from DevTools")
-        print("  2. Saved it to a file named 'redfin_url.txt'")
-        print(f"  3. Placed it in: {os.path.dirname(__file__)}")
+    if not txt_files:
+        print("\n  No .txt files found in the redfin folder.")
+        print("  Save the URL to a text file first:")
+        print("  - Open Notepad, paste the URL, save it in the redfin folder as anything.txt")
+        print("  - Then run the script again.\n")
         sys.exit()
+
+    print("\n  Saved URL files found:")
+    for i, fname in enumerate(txt_files, 1):
+        print(f"    {i} - {fname}")
+    pick = input("\n  Pick a file (number): ").strip()
+    try:
+        url_file = os.path.join(script_dir, txt_files[int(pick) - 1])
+    except (ValueError, IndexError):
+        print("Invalid choice.")
+        sys.exit()
+
+    with open(url_file, 'r', encoding='utf-8') as f:
+        raw = f.read().strip()
+
+    if not raw or 'redfin' not in raw.lower():
+        print(f"\nERROR: {url_file} doesn't look like a Redfin URL.")
+        sys.exit()
+    print(f"URL loaded from {os.path.basename(url_file)}")
     try:
         if 'user_poly=' in raw:
             poly_str = raw.split('user_poly=')[1].split('&')[0]

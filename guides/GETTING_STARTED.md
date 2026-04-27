@@ -14,46 +14,64 @@ The output is a spreadsheet and an interactive map.
 
 ---
 
-## Step 1 — Set up your terminal
+## Step 1 — Install Python
 
-**Windows — install WSL (Ubuntu terminal, one time):**
-1. Click the Start menu, search for **PowerShell**, right-click it and select **Run as Administrator**
-2. Run this command:
+Python is the program that runs the script. You only do this once.
+
+**Windows:**
+1. Go to [python.org/downloads](https://python.org/downloads)
+2. Click the big yellow Download button
+3. Run the installer — **on the very first screen, check the box that says "Add Python to PATH"** before you click anything else. This is easy to miss.
+4. Click Install Now and let it finish
+5. To verify: open the Start menu, search for **Command Prompt**, open it, and type `python --version` — you should see a version number
+
+**Mac:**
+1. Go to [python.org/downloads](https://python.org/downloads)
+2. Download and run the installer
+3. To verify: open **Terminal** (search for it in Spotlight) and type `python3 --version`
+
+**Linux:**
 ```
-wsl --install
-```
-3. Restart your computer when prompted
-4. After restart, open **Ubuntu** from the Start menu — it will finish setting up and ask you to create a username and password
-5. That Ubuntu window is your terminal — use it for all the steps below
-6. From now on, any time you want to run the script just open the Start menu, search **Ubuntu**, and click it
-
-**Mac:** Open **Terminal** (search for it in Spotlight)
-
-**Linux:** Open your terminal
-
----
-
-## Step 2 — Install Python and Git
-
-In your terminal run:
-```
-sudo apt update && sudo apt install python3 python3-pip git
+sudo apt install python3 python3-pip
 ```
 
 ---
 
-## Step 3 — Download the script
+## Step 2 — Install Git and download the script
 
+**Windows:**
+1. Go to [git-scm.com/download/win](https://git-scm.com/download/win), download and run the installer, click through all the defaults
+2. Open Command Prompt and run:
 ```
 git clone https://github.com/kosmickroma/redfin.git
-cd redfin
+```
+
+**Mac:**
+1. Open Terminal and run `git --version` — Mac will prompt you to install Git automatically
+2. Then run:
+```
+git clone https://github.com/kosmickroma/redfin.git
+```
+
+**Linux:**
+```
+sudo apt install git
+git clone https://github.com/kosmickroma/redfin.git
 ```
 
 ---
 
-## Step 4 — Install dependencies
+## Step 3 — Install dependencies
 
+**Windows:** Open Command Prompt, navigate to the redfin folder, and run:
 ```
+cd redfin
+pip install -r requirements.txt
+```
+
+**Mac / Linux:**
+```
+cd redfin
 pip3 install -r requirements.txt
 ```
 
@@ -61,7 +79,7 @@ This installs three small libraries. Takes under a minute.
 
 ---
 
-## Step 5 — Download Dallas County property data (one time)
+## Step 4 — Download Dallas County property data (one time)
 
 This is the official county records database. It's free and public. You download it
 once and it lives on your machine.
@@ -78,7 +96,7 @@ once and it lives on your machine.
 
 ---
 
-## Step 6 — Download the parcel map data (one time)
+## Step 5 — Download the parcel map data (one time)
 
 This gives every property its exact location on the map so pins land on the actual lot.
 
@@ -115,15 +133,17 @@ redfin/
 
 ---
 
-## Step 7 — Run it
+## Step 6 — Run it
 
-In your terminal (Ubuntu on Windows, Terminal on Mac/Linux):
+**Windows:** Double-click `run.bat` in the redfin folder. A terminal window opens automatically.
+
+**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
 ```
 python3 analyze_block.py
 ```
 
 The script will ask you two things:
-1. Do you want to pick a neighborhood by name, or draw a custom area on Redfin?
+1. Do you want to pick a neighborhood by name, or use a custom area from Redfin?
 2. What do you want to call this run? (This becomes the output filename)
 
 ---
@@ -155,16 +175,16 @@ Use this to analyze any specific block or shape you want.
    - Click around the area to draw — click back to the starting point to close the shape
 3. Once your shape is drawn, press **F12** to open the browser developer tools
 4. Click the **Network** tab and type `gis` in the filter box
-5. Go back to the map and pan or move it slightly — this fires new requests that will appear in the list
+5. Go back to the map and pan or move it slightly — new requests will appear in the list
 6. Click any of the new requests that pop up
 7. Right-click the URL at the top of the panel and select **Copy link address**
-8. **Save the URL to a file called `redfin_url.txt`** in the redfin folder
-   - Windows: Right-click in the folder, New > Text Document, paste the URL, save as `redfin_url.txt`
-   - Mac/Linux: Use any text editor, paste URL, save as `redfin_url.txt` in the redfin folder
-9. Switch back to the script, press **Enter** when prompted
-10. Give your run a label (e.g. `highland_park_block1`) — this becomes the filename
+8. Open **Notepad** (or any text editor), paste the URL, and save it with any name you want
+   — e.g. `highland_park.txt` — inside the redfin folder
+   - You can save as many of these as you want and come back to them any time
+9. Back in the script, type `2` — it will list all the `.txt` files it finds in the folder.
+   Pick the number next to the file you just saved.
 
-The script reads the URL from the file and extracts the coordinates automatically. This avoids Windows terminal issues with special characters in URLs.
+No pasting into the terminal — the URL lives in the text file where special characters are not an issue.
 
 ---
 

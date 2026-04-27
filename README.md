@@ -9,13 +9,9 @@ each property, what it's worth, and whether it's listed anywhere.
 
 ## Running It
 
-First, open a terminal in the `redfin` folder:
-- **Windows:** Open Command Prompt, then type `cd C:\path\to\redfin` (wherever you cloned it)
-- **Mac / Linux:** Open Terminal, then type `cd ~/redfin` (or wherever you cloned it)
+**Windows:** Double-click `run.bat` in the redfin folder
 
-Then run:
-
-**Windows (Ubuntu/WSL terminal) / Mac / Linux:**
+**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
 ```
 python3 analyze_block.py
 ```
@@ -49,14 +45,13 @@ Use this to analyze any specific block or custom shape:
 2. Click the **draw tool** on the Redfin map and draw your shape
 3. Once your shape is drawn, press **F12** to open DevTools
 4. Click the **Network** tab and type `gis` in the filter box
-5. Click the most recent request that appears in the list
-6. **Right-click the full URL** at the top of the panel and copy it
-7. **Save the URL to a text file called `redfin_url.txt`** in the same folder as the script
-   - Windows: Right-click in the redfin folder, New > Text Document, paste URL, save as `redfin_url.txt`
-   - Mac/Linux: Use any text editor, paste the URL, save as `redfin_url.txt`
-8. Back in the script, type `2` and press Enter
+5. Go back to the map and pan or move it slightly — new requests will appear in the list
+6. Click any of the new requests that pop up
+7. Right-click the URL at the top of the panel and copy it
+8. Open **Notepad** (or any text editor), paste the URL, and save the file with any name you want — e.g. `highland_park.txt` — inside the redfin folder
+9. Back in the script, type `2` — it will list all saved `.txt` files, pick the one you just saved
 
-The script reads the URL from the file automatically — this avoids Windows terminal issues with special characters.
+You can save as many URL files as you want and come back to them any time.
 
 ---
 
