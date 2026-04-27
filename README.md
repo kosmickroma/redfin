@@ -69,12 +69,8 @@ once and it stays on your machine.
 
 ![DCAD Data Products page](assets/dcad_data_products.png)
 
-3. Extract the ZIP — you need these four files:
-   - `ACCOUNT_INFO.CSV`
-   - `ACCOUNT_APPRL_YEAR.CSV`
-   - `RES_DETAIL.CSV`
-   - `LAND.CSV`
-4. Create a folder called `dcad_data` inside the `redfin` folder and place all four files in it
+3. Create a folder called `dcad_data` inside the `redfin` folder
+4. Extract the entire ZIP into `dcad_data` — just extract everything, don't pick and choose. The script only uses four of the files (`ACCOUNT_INFO.CSV`, `ACCOUNT_APPRL_YEAR.CSV`, `RES_DETAIL.CSV`, `LAND.CSV`) but having the full dataset there won't hurt anything and gives you the complete county records if you ever need them later
 
 ---
 
@@ -89,7 +85,7 @@ This gives every property its exact GPS location so pins land on the actual lot.
 ![DCAD GIS Data Products page](assets/dcad_gis_products.png)
 
 4. Inside `dcad_data`, create a folder called `PARCEL_GEOM`
-5. Extract the ZIP into that folder — you should have `PARCEL_GEOM.shp` inside it
+5. Extract the entire ZIP into that folder — extract everything, you should see `PARCEL_GEOM.shp` among the files
 
 ---
 
@@ -159,12 +155,15 @@ Go to redfin.com, find the area, and use the draw tool to draw your shape on the
 **Step 2 — Open DevTools and get the URL**
 
 Once you've drawn your shape, press **F12** to open the browser developer tools.
-Click the **Network** tab and type `gis` in the filter box.
-Go back to the map and pan or move it slightly — requests will appear in the list.
+Click the **Network** tab and type `gis` in the filter box. Nothing will show up yet — that's normal. The list only populates when the map fires a request, which is why the next step is to nudge it.
+
+Go back to the map and pan or move it slightly. This causes Redfin to reload the map data, which fires the requests we need. You'll see them appear in the list filtered by `gis`.
 
 ![DevTools Network Tab](assets/devtools_network_tab.png)
 
-Click any of the new requests that appear. A panel opens on the right side — click the **Headers** tab if it's not already selected. At the very top of that panel you'll see the full URL starting with `GET https://www.redfin.com/stingray/api/gis` — the coordinates are highlighted in blue.
+Click any of the new requests that appear. A panel opens on the right side — click the **Headers** tab if it's not already selected. At the very top of that panel you'll see the full URL starting with `GET https://www.redfin.com/stingray/api/gis`.
+
+This URL contains the coordinates of the area you drew — that's what we're after. The script reads those coordinates to know exactly which properties to pull. You don't need to find or copy the coordinates yourself, just grab the whole URL and the script handles the rest.
 
 ![URL in Headers tab](assets/devtools_url_closeup.png)
 
@@ -184,12 +183,13 @@ Run the script, type `2`, and it will list all the `.txt` files it finds in the 
 
 ## Output Files
 
-Each run saves two files in the `output/` folder:
+Each run saves three files in the `output/` folder — the two you'll actually use and a raw data file from the Redfin pull:
 
 | File | What It Is |
 |---|---|
 | `block_analysis_[label].csv` | Full spreadsheet — open in Excel or Google Sheets |
 | `map_[label].html` | Interactive map — open in any browser |
+| `redfin_[label].csv` | Raw Redfin listing data — you won't need this normally |
 
 After a few runs your output folder will look like this:
 
@@ -198,23 +198,17 @@ redfin/
   output/
     block_analysis_highland_park.csv
     map_highland_park.html
+    redfin_highland_park.csv
     block_analysis_uptown.csv
     map_uptown.html
-    block_analysis_lakewood.csv
-    map_lakewood.html
+    redfin_uptown.csv
 ```
 
 ---
 
 ## Reading the Output
 
-**Finding teardown candidates:** Sort by **Land % of Total** descending.
-A property where land is 70–90%+ of the total value means the land is worth
-far more than the structure sitting on it. Combined with an old Year Built,
-that's the owner to call.
-
-**On/Off market:** Filter **Listed on Redfin** to `NO` to see only off-market
-properties — owners who aren't selling publicly and may not know anyone is looking.
+**On/Off market:** Filter **Listed on Redfin** to `NO` to see only off-market properties.
 
 **Google Maps Link:** Click any row to open the property in Google Maps.
 
