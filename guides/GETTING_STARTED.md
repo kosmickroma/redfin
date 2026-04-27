@@ -14,72 +14,54 @@ The output is a spreadsheet and an interactive map.
 
 ---
 
-## Step 1 — Install Python
+## Step 1 — Set up your terminal
 
-Python is the program that runs the script. You only do this once.
-
-**Windows:**
-1. Go to [python.org/downloads](https://python.org/downloads)
-2. Click the big yellow Download button
-3. Run the installer — **on the very first screen, check the box that says "Add Python to PATH"** before you click anything else. This is easy to miss.
-4. Click Install Now and let it finish
-5. To verify: open the Start menu, search for **Command Prompt**, open it, and type `python --version` — you should see a version number
-
-**Mac:**
-1. Go to [python.org/downloads](https://python.org/downloads)
-2. Download and run the installer
-3. To verify: open **Terminal** (search for it in Spotlight) and type `python3 --version`
-
-**Linux:**
+**Windows — install WSL (Ubuntu terminal, one time):**
+1. Click the Start menu, search for **PowerShell**, right-click it and select **Run as Administrator**
+2. Run this command:
 ```
-sudo apt install python3 python3-pip
+wsl --install
+```
+3. Restart your computer when prompted
+4. After restart, open **Ubuntu** from the Start menu — it will finish setting up and ask you to create a username and password
+5. That Ubuntu window is your terminal — use it for all the steps below
+6. From now on, any time you want to run the script just open the Start menu, search **Ubuntu**, and click it
+
+**Mac:** Open **Terminal** (search for it in Spotlight)
+
+**Linux:** Open your terminal
+
+---
+
+## Step 2 — Install Python and Git
+
+In your terminal run:
+```
+sudo apt update && sudo apt install python3 python3-pip git
 ```
 
 ---
 
-## Step 2 — Download the script
+## Step 3 — Download the script
 
-**Windows:**
-1. Go to [git-scm.com/download/win](https://git-scm.com/download/win), download and run the installer, click through all the defaults
-2. Open Command Prompt and run:
 ```
 git clone https://github.com/kosmickroma/redfin.git
-```
-
-**Mac:**
-1. Open Terminal and run `git --version` — Mac will prompt you to install Git automatically if you don't have it
-2. Then run:
-```
-git clone https://github.com/kosmickroma/redfin.git
-```
-
-**Linux:**
-```
-sudo apt install git
-git clone https://github.com/kosmickroma/redfin.git
+cd redfin
 ```
 
 ---
 
-## Step 3 — Install dependencies
+## Step 4 — Install dependencies
 
-**Windows:** Open Command Prompt, navigate to the redfin folder, and run:
 ```
-cd redfin
-pip install -r requirements.txt
-```
-
-**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
-```
-cd redfin
 pip3 install -r requirements.txt
 ```
 
-This installs three small libraries the script needs. Takes under a minute.
+This installs three small libraries. Takes under a minute.
 
 ---
 
-## Step 4 — Download Dallas County property data (one time)
+## Step 5 — Download Dallas County property data (one time)
 
 This is the official county records database. It's free and public. You download it
 once and it lives on your machine.
@@ -96,7 +78,7 @@ once and it lives on your machine.
 
 ---
 
-## Step 5 — Download the parcel map data (one time)
+## Step 6 — Download the parcel map data (one time)
 
 This gives every property its exact location on the map so pins land on the actual lot.
 
@@ -133,11 +115,9 @@ redfin/
 
 ---
 
-## Step 6 — Run it
+## Step 7 — Run it
 
-**Windows:** Double-click `run.bat` in the redfin folder. A terminal window will open automatically.
-
-**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
+In your terminal (Ubuntu on Windows, Terminal on Mac/Linux):
 ```
 python3 analyze_block.py
 ```

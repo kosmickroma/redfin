@@ -15,9 +15,7 @@ First, open a terminal in the `redfin` folder:
 
 Then run:
 
-**Windows:** Double-click `run.bat` in the redfin folder
-
-**Mac / Linux:**
+**Windows (Ubuntu/WSL terminal) / Mac / Linux:**
 ```
 python3 analyze_block.py
 ```
