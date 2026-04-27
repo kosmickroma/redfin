@@ -180,12 +180,23 @@ if choice == '2':
     print("  1. Go to redfin.com and find the area you want")
     print("  2. Use the draw tool on the Redfin map to draw your shape")
     print("  3. Press F12 to open DevTools, click the Network tab, type 'gis' in the filter box")
-    print("  4. Click the most recent request that appears in the list")
-    print("  5. Right-click the URL at the top of the panel and copy the entire URL\n")
-    raw = input("Paste the full Redfin URL here: ").strip()
-    # Accept either a full Redfin URL (extracts user_poly automatically) or a raw
-    # user_poly string — handles both so the user just pastes whatever they have.
-    # Quotes are stripped first in case Windows users wrapped the URL to escape &.
+    print("  4. Go back to the map and pan or move it slightly — new requests will appear in the list")
+    print("  5. Click any of the new requests that pop up")
+    print("  6. Right-click the URL at the top of the panel and COPY it")
+    print("  7. Come back here and press Enter — the script will read it from your clipboard\n")
+    input("Press Enter once you have copied the URL...")
+    # Read from clipboard so the user never has to paste into the terminal.
+    # Pasting URLs with & into Windows CMD breaks even inside a running program —
+    # reading the clipboard directly avoids that entirely. tkinter is bundled with Python.
+    try:
+        import tkinter as tk
+        root = tk.Tk()
+        root.withdraw()
+        raw = root.clipboard_get().strip()
+        root.destroy()
+        print(f"URL read from clipboard.")
+    except Exception:
+        raw = input("Clipboard read failed — paste the URL manually: ").strip()
     try:
         if 'user_poly=' in raw:
             poly_str = raw.split('user_poly=')[1].split('&')[0]
@@ -197,8 +208,7 @@ if choice == '2':
         MIN_LNG, MAX_LNG = min(lngs), max(lngs)
         MIN_LAT, MAX_LAT = min(lats), max(lats)
     except (ValueError, IndexError):
-        print("\nCouldn't parse that URL.")
-        print("Windows users: try wrapping the URL in double quotes when pasting.")
+        print("\nCouldn't read the URL from clipboard — make sure you copied it before pressing Enter.")
         sys.exit()
     label = input("Label for output files (e.g. 'oak_cliff_block1'): ").strip()
     if not label:

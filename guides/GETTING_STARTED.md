@@ -44,7 +44,6 @@ sudo apt install python3 python3-pip
 2. Open Command Prompt and run:
 ```
 git clone https://github.com/kosmickroma/redfin.git
-cd redfin
 ```
 
 **Mac:**
@@ -52,29 +51,27 @@ cd redfin
 2. Then run:
 ```
 git clone https://github.com/kosmickroma/redfin.git
-cd redfin
 ```
 
 **Linux:**
 ```
 sudo apt install git
 git clone https://github.com/kosmickroma/redfin.git
-cd redfin
 ```
 
 ---
 
 ## Step 3 — Install dependencies
 
-Inside the redfin folder, run this one command:
-
-**Windows:**
+**Windows:** Open Command Prompt, navigate to the redfin folder, and run:
 ```
+cd redfin
 pip install -r requirements.txt
 ```
 
-**Mac / Linux:**
+**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
 ```
+cd redfin
 pip3 install -r requirements.txt
 ```
 
@@ -85,7 +82,7 @@ This installs three small libraries the script needs. Takes under a minute.
 ## Step 4 — Download Dallas County property data (one time)
 
 This is the official county records database. It's free and public. You download it
-once and it lives on your machine — the script reads it locally, no internet needed.
+once and it lives on your machine.
 
 1. Go to [dallascad.org/dataproducts.aspx](https://dallascad.org/dataproducts.aspx)
 2. Download **2026 Data Files with Proposed Values (Res and Com)**
@@ -117,6 +114,7 @@ This gives every property its exact location on the map so pins land on the actu
 redfin/
   analyze_block.py
   redfin_tool.py
+  run.bat
   requirements.txt
   README.md
   guides/
@@ -137,21 +135,16 @@ redfin/
 
 ## Step 6 — Run it
 
-Open Command Prompt (Windows) or Terminal (Mac/Linux), navigate to the redfin folder, and run:
+**Windows:** Double-click `run.bat` in the redfin folder. A terminal window will open automatically.
 
-**Windows:**
-```
-python analyze_block.py
-```
-
-**Mac / Linux:**
+**Mac / Linux:** Open Terminal, navigate to the redfin folder, and run:
 ```
 python3 analyze_block.py
 ```
 
-The script will ask you two questions:
-1. Do you want to pick a neighborhood by name, or paste coordinates from Redfin?
-2. What do you want to call this run? (This becomes the filename)
+The script will ask you two things:
+1. Do you want to pick a neighborhood by name, or draw a custom area on Redfin?
+2. What do you want to call this run? (This becomes the output filename)
 
 ---
 
@@ -174,49 +167,48 @@ Spelling doesn't need to be exact — it will find the closest match.
 
 **Option 2 — Draw a custom area on Redfin**
 
-Use this to analyze any specific block or custom shape:
+Use this to analyze any specific block or shape you want.
 
-1. Go to **redfin.com** and navigate to the area you want to analyze
-2. Press **F12** on your keyboard to open the browser developer tools
-3. Click the **Network** tab along the top of the developer tools panel
-4. In the filter box, type **`gis`** — this filters out everything except the map data requests
-5. On the Redfin map, click the **draw tool** (looks like a pencil or polygon icon, usually in the top-right of the map)
-6. Draw your shape by clicking around the area — click back to the start to close the shape
-7. A request will appear in the Network tab — click on it
-8. **Right-click the full URL** at the top of the panel and copy the entire thing
-9. Back in the script, type `2`, paste the full URL when prompted, and give your run a label
+1. Go to **redfin.com** and navigate to the area you want
+2. Click the **draw tool** on the Redfin map and draw your shape
+   - The draw tool is usually in the top-right corner of the map
+   - Click around the area to draw — click back to the starting point to close the shape
+3. Once your shape is drawn, press **F12** to open the browser developer tools
+4. Click the **Network** tab and type `gis` in the filter box
+5. Go back to the map and pan or move it slightly — this fires new requests that will appear in the list
+6. Click any of the new requests that pop up
+7. Right-click the URL at the top of the panel and select **Copy link address**
+8. Switch back to the script window and press **Enter** — it reads the URL from your clipboard automatically, no pasting needed
+9. Give your run a label (e.g. `highland_park_block1`) — this becomes the filename
 
-The script pulls the coordinates out of the URL automatically — you just paste and go.
+The script extracts the coordinates automatically — you just paste the URL and go.
 
 ---
 
 ## What You Get
 
-Two files are saved in the `output` folder:
+Two files are saved in the `output` folder inside redfin:
 
 **Spreadsheet** (`block_analysis_[name].csv`)
-Open in Excel or Google Sheets. One row per property with:
+Open in Excel or Google Sheets. One row per property:
 - Who owns it and where they get their mail
-- What the county says it's worth (land vs. structure)
-- Year built, square footage, zoning, school district
+- Land value, total value, land % of total
+- Year built, square footage, zoning, school district, lot size, frontage, depth
 - Whether it's listed on Redfin right now
 
 **Map** (`map_[name].html`)
-Double-click to open in any browser. Each property is outlined on the map.
+Double-click to open in any browser. Each property is outlined on the actual parcel.
 - Red = listed on Redfin
 - Blue = off market
-
-Click any property outline for owner info and values.
+- Click any parcel for owner info and values
 
 ---
 
 ## Sharing the Map
 
-The map file opens in any browser. To share it with someone else:
-
 1. Go to [netlify.com/drop](https://netlify.com/drop)
 2. Drag your `map_[name].html` file onto the page
-3. You get a link instantly — share it with anyone
+3. You get a shareable link instantly — anyone can open it in their browser
 
 A free Netlify account keeps the link permanent.
 
@@ -226,9 +218,9 @@ A free Netlify account keeps the link permanent.
 
 In the spreadsheet, sort by **Land % of Total** from highest to lowest.
 
-A property where land is 80–90%+ of the total value means the land itself is worth
-far more than the building sitting on it. Pair that with an old **Year Built** and
-you have a strong teardown candidate — an owner who may not know anyone is looking.
+A property where land is 80–90%+ of the total value means the land is worth
+far more than the building on top of it. Pair that with an old **Year Built** and
+you have a strong candidate — an owner who may not know anyone is looking.
 
 Filter **Listed on Redfin** to `NO` to see only off-market properties.
 Every one of those rows has the owner name and mailing address.
