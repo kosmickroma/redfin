@@ -187,15 +187,33 @@ if choice == '2':
     input("Press Enter once you have copied the URL...")
     # Read from clipboard so the user never has to paste into the terminal.
     # Pasting URLs with & into Windows CMD breaks even inside a running program —
-    # reading the clipboard directly avoids that entirely. tkinter is bundled with Python.
+    # reading the clipboard directly avoids that entirely.
+    # Uses PowerShell on Windows (built-in), pbpaste on Mac, xclip/xsel on Linux.
+    import platform, subprocess
+    raw = None
+    system = platform.system()
     try:
-        import tkinter as tk
-        root = tk.Tk()
-        root.withdraw()
-        raw = root.clipboard_get().strip()
-        root.destroy()
-        print(f"URL read from clipboard.")
+        if system == 'Windows':
+            result = subprocess.run(['powershell', '-command', 'Get-Clipboard'],
+                                    capture_output=True, text=True)
+            raw = result.stdout.strip()
+        elif system == 'Darwin':
+            result = subprocess.run(['pbpaste'], capture_output=True, text=True)
+            raw = result.stdout.strip()
+        else:
+            for cmd in [['xclip', '-selection', 'clipboard', '-o'], ['xsel', '--clipboard', '--output']]:
+                try:
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    if result.returncode == 0:
+                        raw = result.stdout.strip()
+                        break
+                except FileNotFoundError:
+                    continue
     except Exception:
+        pass
+    if raw and 'redfin' in raw:
+        print("URL read from clipboard.")
+    else:
         raw = input("Clipboard read failed — paste the URL manually: ").strip()
     try:
         if 'user_poly=' in raw:
