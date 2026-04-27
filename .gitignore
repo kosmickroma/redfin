@@ -1,6 +1,9 @@
-docs/
 dcad_data/
-*.csv
-map.html
+output/
+docs/
 __pycache__/
 *.pyc
+*.csv
+map*.html
+BRIEFING.md
+.~lock.*

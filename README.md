@@ -1,204 +1,265 @@
-# Redfin Teardown Finder
+# Dallas Off-Market Property Finder
 
-Automatically pulls active property listings from any Dallas neighborhood, groups
-them by city block, and flags properties priced significantly below their neighbors —
-the most likely teardown or undervalued candidates.
-
-No manual searching. No drawing boxes on a map. Type a neighborhood name and it runs.
-
----
-
-## What This Does (Plain English)
-
-1. You type a neighborhood name like "Preston Hollow"
-2. The script pulls every active listing Redfin shows for that area
-3. It groups properties by city block
-4. It calculates the median (middle) price for each block
-5. Any property listed at less than 50% of its block's median gets flagged
-6. Everything saves to a spreadsheet you can open in Excel
+Pulls every active listing from Redfin for any area in Dallas and cross-references
+it against Dallas County Appraisal District (DCAD) records — which cover **every
+property that exists**, not just the ones for sale. The output tells you who owns
+each property, what it's worth, and whether it's listed anywhere.
 
 ---
 
-## Installation (Windows)
+## What You Get
+
+A spreadsheet with one row per property in your target area:
+
+| Column | What It Is |
+|---|---|
+| Property Address | Street address |
+| Listed on Redfin | YES = active listing / NO = off market |
+| Owner Name | Who owns it |
+| Owner Mailing Address | Where to send a letter |
+| Owner City / State / Zip | Owner's mailing location |
+| Land Value | County appraisal — land only |
+| Improvement Value | County appraisal — structure only |
+| Total Value | Combined county appraisal |
+| Land % of Total | Key teardown signal — higher = more valuable as land than as structure |
+| Year Built | Age of structure |
+| Living Area (sq ft) | Interior square footage |
+| Total Structure Area (sq ft) | Full structure footprint |
+| Zoning | How the parcel is zoned |
+| Lot Size (sq ft) | Total lot area |
+| Frontage (ft) | Street frontage |
+| Depth (ft) | Lot depth |
+| School District | ISD serving the property |
+| Neighborhood Code | DCAD neighborhood classification |
+| Legal Description | Subdivision, block, and lot number |
+| Google Maps Link | One click to view the property in Google Maps |
+
+An interactive map (`map_[name].html`) is also saved — open it in any browser.
+Red pins = listed on Redfin. Blue pins = off market. Click any pin for details.
+
+---
+
+## Requirements
+
+- Python 3.9 or newer
+- Internet connection (for the Redfin pull)
+- DCAD data files (one-time download, ~500 MB — instructions below)
+
+---
+
+## Installation
 
 ### Step 1 — Install Python
 
-1. Go to **https://www.python.org/downloads/**
-2. Click the big yellow **Download Python** button
-3. Run the installer
-4. **IMPORTANT:** On the first screen, check the box that says **"Add Python to PATH"** before clicking Install
+**Windows:**
+1. Go to [python.org/downloads](https://www.python.org/downloads/)
+2. Click **Download Python**
+3. Run the installer — on the first screen, check **"Add Python to PATH"** before clicking Install
+4. Verify: open Command Prompt and run `python --version`
 
-To confirm it worked, open **Command Prompt** (search "cmd" in the Start menu) and type:
-```
-python --version
-```
-You should see something like `Python 3.12.x`. If you get an error, Python did not get added to PATH — re-run the installer and make sure that box is checked.
-
----
-
-### Step 2 — Install Git
-
-1. Go to **https://git-scm.com/download/win**
+**Mac:**
+1. Go to [python.org/downloads](https://www.python.org/downloads/)
 2. Download and run the installer
-3. Click through the defaults — no changes needed
+3. Verify: open Terminal and run `python3 --version`
+
+**Linux:**
+```bash
+sudo apt install python3 python3-pip   # Ubuntu/Debian
+```
 
 ---
 
-### Step 3 — Download the Code
+### Step 2 — Download the code
 
-Open **Command Prompt** and run:
-```
-git clone https://github.com/korykarp/redfin.git
-```
+Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux) and run:
 
-Then move into the folder:
 ```
+git clone https://github.com/kosmickroma/redfin.git
 cd redfin
 ```
 
----
-
-### Step 4 — Install Dependencies
-
-Still in Command Prompt, run:
-```
-pip install requests pandas numpy
-```
-
-This downloads the three libraries the script needs. Should take under a minute.
+If you don't have Git installed:
+- **Windows:** [git-scm.com/download/win](https://git-scm.com/download/win) — run installer, click through defaults
+- **Mac:** Run `git --version` in Terminal — Mac will prompt you to install it automatically
+- **Linux:** `sudo apt install git`
 
 ---
 
-### Step 5 — Run It
+### Step 3 — Install dependencies
+
+Inside the `redfin` folder, run:
 
 ```
-python redfin_tool.py
+pip install -r requirements.txt
+```
+
+On Mac or Linux, use `pip3` if `pip` doesn't work:
+
+```
+pip3 install -r requirements.txt
+```
+
+This installs three libraries: `requests`, `pandas`, and `numpy`. Takes under a minute.
+
+---
+
+### Step 4 — Download DCAD data (one time)
+
+This is the Dallas County property records database. You download it once and it
+stays on your machine. DCAD updates it annually.
+
+1. Go to [dallascad.org/dataproducts.aspx](https://dallascad.org/dataproducts.aspx)
+2. Download **2026 Data Files with Proposed Values (Res and Com)**
+3. Extract the ZIP — you need these files:
+   - `ACCOUNT_INFO.CSV`
+   - `ACCOUNT_APPRL_YEAR.CSV`
+   - `RES_DETAIL.CSV`
+   - `LAND.CSV`
+4. Place them in a folder called `dcad_data` inside the `redfin` folder
+
+---
+
+### Step 5 — Download DCAD parcel shapefile (one time)
+
+This gives every property its exact GPS location. Without it the script falls back
+to a less precise geocoder.
+
+1. Go to [dallascad.org/dataproducts.aspx](https://dallascad.org/dataproducts.aspx)
+2. Click **GIS Data Products** in the left navigation
+3. Download **Current 2026 Parcels** (the file is called `PARCEL_GEOM.zip`)
+4. Extract into `dcad_data/PARCEL_GEOM/` — you should have `PARCEL_GEOM.shp` inside that folder
+
+---
+
+### Your folder should look like this
+
+```
+redfin/
+  analyze_block.py
+  redfin_tool.py
+  requirements.txt
+  README.md
+  dcad_data/
+    ACCOUNT_INFO.CSV
+    ACCOUNT_APPRL_YEAR.CSV
+    RES_DETAIL.CSV
+    LAND.CSV
+    PARCEL_GEOM/
+      PARCEL_GEOM.shp
+      PARCEL_GEOM.dbf
+      PARCEL_GEOM.shx
+      PARCEL_GEOM.prj
+      (other shapefile components)
 ```
 
 ---
 
-## How to Use It
+## Running It
 
-When you run the script it will show you a menu:
+First, open a terminal in the `redfin` folder:
+- **Windows:** Open Command Prompt, then type `cd C:\path\to\redfin` (wherever you cloned it)
+- **Mac / Linux:** Open Terminal, then type `cd ~/redfin` (or wherever you cloned it)
 
+Then run:
+
+**Windows:**
 ```
-Available Dallas neighborhoods:
-  - Bishop Arts
-  - Bluffview
-  - Deep Ellum
-  - Devonshire
-  - Far North Dallas
-  - Highland Park
-  - Knox Henderson
-  - Lake Highlands
-  - Lakewood
-  - Lower Greenville
-  - M Streets
-  - North Dallas
-  - Oak Lawn
-  - Preston Hollow
-  - Turtle Creek
-  - University Park
-  - Uptown
-  - White Rock Lake
-
-How do you want to define the area?
-  1 - Type a neighborhood name
-  2 - Paste coordinates (min_lng, min_lat, max_lng, max_lat)
-
-Choice (1 or 2):
+python analyze_block.py
 ```
 
-**Option 1** — Just type the neighborhood name. Spelling doesn't have to be perfect.
-
-**Option 2** — If you have a specific area not in the list, go to **bboxfinder.com**,
-draw a rectangle on the map, and paste the 4 numbers it gives you.
-
-The script will print progress as it runs, then save the results.
+**Mac / Linux:**
+```
+python3 analyze_block.py
+```
 
 ---
 
-## Output
+## How to Pick Your Area
 
-The script saves a file called **redfin_listings.csv** in the same folder you run it from.
+The script gives you two options:
 
-Open it with Excel, Google Sheets, or LibreOffice Calc. It contains every active
-listing Redfin shows for that neighborhood — one row per property, ready to work with.
+**Option 1 — Neighborhood name**
 
-Key columns:
+Type `1` and enter a neighborhood. Built-in neighborhoods include:
 
-| Column | What It Means |
+```
+Bluffview         Highland Park      Knox Henderson
+Lake Highlands    Lakewood           Lower Greenville
+M Streets         North Dallas       Oak Lawn
+Preston Hollow    Turtle Creek       University Park
+Uptown            White Rock Lake
+```
+
+Spelling doesn't need to be exact — it will fuzzy-match.
+
+**Option 2 — Custom area from Redfin**
+
+Use this to analyze any specific block or custom shape:
+
+1. Go to redfin.com and navigate to the area
+2. Press **F12** to open DevTools → click the **Network** tab → type `gis` in the filter box
+3. Click the draw tool on the Redfin map and draw your shape
+4. Click the request that appears in the Network tab
+5. In the URL, find the `user_poly=` parameter — those are your coordinates
+6. Back in the script, type `2`, paste the coordinates, and give the run a label
+
+You'll also be asked for a **label** — this becomes the output filename (e.g. `oak_cliff_block1`
+saves as `block_analysis_oak_cliff_block1.csv`).
+
+---
+
+## Output Files
+
+Each run saves two files in the `redfin/` folder:
+
+| File | What It Is |
 |---|---|
-| ADDRESS | Property street address |
-| PRICE | Current list price |
-| PROPERTY TYPE | Single family, condo, townhouse, etc. |
-| BEDS / BATHS | Bedroom and bathroom count |
-| SQUARE FEET | Interior square footage |
-| LOT SIZE | Lot size in square feet |
-| YEAR BUILT | Year the property was built |
-| DAYS ON MARKET | How long it has been listed |
-| URL | Direct link to the Redfin listing |
-| LATITUDE / LONGITUDE | Exact coordinates of the property |
+| `block_analysis_[label].csv` | Full spreadsheet — open in Excel or Google Sheets |
+| `map_[label].html` | Interactive map — double-click to open in any browser |
 
 ---
 
 ## How Long Does It Take?
 
-| Neighborhood Size | Approx Time |
+| Step | Time |
 |---|---|
-| Small (Uptown, Deep Ellum) | 30–60 seconds |
-| Medium (Preston Hollow, Lakewood) | 2–3 minutes |
-| Large (Lake Highlands, North Dallas) | 5–8 minutes |
+| Loading parcel shapefile | 10–20 seconds (first time each run) |
+| Redfin pull (small area) | 30–60 seconds |
+| Redfin pull (full neighborhood) | 2–4 minutes |
+| DCAD join and output | A few seconds |
 
 ---
 
-## Important Limitations
+## Reading the Output
 
-**Redfin has no official public API.**
-This tool uses Redfin's internal data endpoint — the same one their website uses
-to load the map. It is not an officially supported connection. Redfin could change
-it at any time, which would require an update to the script. It has been working
-reliably but is not guaranteed.
+**To find teardown candidates:** Sort by **Land % of Total** descending.
+A property where land is 70–90%+ of the total value means the land is worth
+far more than the structure sitting on it. Combined with an old Year Built,
+that's the owner to call.
 
-**Active listings only.**
-The tool pulls properties currently listed for sale. It does not include off-market
-homes, recently sold comps, or unlisted properties.
+**On/Off market:** Filter **Listed on Redfin** to `NO` to see only off-market
+properties — these are owners who aren't selling publicly and may not know
+anyone is looking.
 
-**Block grouping is an approximation.**
-Properties are grouped using a coordinate grid, not official city block boundaries.
-In areas with curved or diagonal streets the grouping may not be perfectly precise.
-Good enough for flagging candidates — not a final legal determination.
-
-**Spot-check the output.**
-The flagging is purely mathematical. Always verify flagged properties manually
-before drawing conclusions. The tool finds candidates for human review — it does
-not replace that review.
+**Google Maps Link:** Click to open the property in Google Maps for a quick
+visual check of the lot, neighborhood context, and street view.
 
 ---
 
-## Adding a New Neighborhood
+## Data Sources
 
-Open `redfin_tool.py` in any text editor. Find the `DALLAS_NEIGHBORHOODS` section
-near the top. Add a new line following the same format:
-
-```python
-"your neighborhood name": (min_lng, min_lat, max_lng, max_lat),
-```
-
-Get the coordinates from **bboxfinder.com** by drawing a rectangle around the area.
+| Source | What It Provides | How Current |
+|---|---|---|
+| Redfin | Active listings, list price, beds/baths/sqft | Live |
+| DCAD | All properties, owner info, appraisal values | Updated annually |
 
 ---
 
-## How It Works (Technical)
+## Notes
 
-Redfin does not offer a public API. Their website loads listing data by calling
-an internal endpoint at `/stingray/api/gis-csv` with the coordinates of whatever
-shape you draw on the map. This endpoint returns a CSV file with all listings
-inside that shape.
-
-By intercepting this request using the browser's built-in DevTools (F12 → Network tab),
-we identified the URL format and all required parameters. The script replicates
-those requests programmatically — looping through a grid of small boxes that cover
-the target neighborhood, collecting all the data, deduplicating, and analyzing it.
-
-No browser required. No logging into Redfin. No API key.
+- Redfin has no public API. This tool uses their internal data endpoint — the same
+  one their website uses. It has worked reliably but is not officially supported.
+- DCAD data updates once per year. Download the new version each spring when DCAD
+  releases it (typically April).
+- Condos and units will show zero frontage and depth — DCAD does not track
+  individual unit dimensions. This is expected.
