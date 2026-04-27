@@ -1,10 +1,7 @@
 dcad_data/
 output/
 docs/
-guides/*.mp4
-guides/*.webm
-guides/*.mov
-guides/*.mkv
+guides/
 __pycache__/
 *.pyc
 *.csv
