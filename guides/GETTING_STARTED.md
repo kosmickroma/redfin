@@ -176,13 +176,17 @@ Spelling doesn't need to be exact — it will find the closest match.
 
 Use this to analyze any specific block or custom shape:
 
-1. Go to redfin.com and find the area you want
-2. Press **F12** to open the browser developer tools
-3. Click the **Network** tab at the top, then type `gis` in the filter box
-4. Click the draw tool on the Redfin map and draw your shape
-5. Click the request that appears in the Network tab
-6. In the URL, find `user_poly=` — the numbers after it are your coordinates
-7. Back in the script, type `2` and paste those numbers
+1. Go to **redfin.com** and navigate to the area you want to analyze
+2. Press **F12** on your keyboard to open the browser developer tools
+3. Click the **Network** tab along the top of the developer tools panel
+4. In the filter box, type **`gis`** — this filters out everything except the map data requests
+5. On the Redfin map, click the **draw tool** (looks like a pencil or polygon icon, usually in the top-right of the map)
+6. Draw your shape by clicking around the area — click back to the start to close the shape
+7. A request will appear in the Network tab — click on it
+8. **Right-click the full URL** at the top of the panel and copy the entire thing
+9. Back in the script, type `2`, paste the full URL when prompted, and give your run a label
+
+The script pulls the coordinates out of the URL automatically — you just paste and go.
 
 ---
 

@@ -172,15 +172,31 @@ for n in sorted(rt.DALLAS_NEIGHBORHOODS.keys()):
 
 print("\nHow do you want to define the area?")
 print("  1 - Type a neighborhood name")
-print("  2 - Paste coordinates (min_lng, min_lat, max_lng, max_lat)")
+print("  2 - Paste user_poly from Redfin URL")
 choice = input("\nChoice (1 or 2): ").strip()
 
 if choice == '2':
-    raw = input("Coordinates: ").strip()
+    print("\nHow to get the URL:")
+    print("  1. Go to redfin.com and find the area you want")
+    print("  2. Use the draw tool on the Redfin map to draw your shape")
+    print("  3. Press F12 to open DevTools, click the Network tab, type 'gis' in the filter box")
+    print("  4. Click the most recent request that appears in the list")
+    print("  5. Right-click the URL at the top of the panel and copy the entire URL\n")
+    raw = input("Paste the full Redfin URL here: ").strip()
+    # Accept either a full Redfin URL (extracts user_poly automatically) or a raw
+    # user_poly string — handles both so the user just pastes whatever they have
     try:
-        MIN_LNG, MIN_LAT, MAX_LNG, MAX_LAT = [float(x.strip()) for x in raw.split(',')]
-    except ValueError:
-        print("Couldn't parse those — 4 numbers separated by commas.")
+        if 'user_poly=' in raw:
+            poly_str = raw.split('user_poly=')[1].split('&')[0]
+        else:
+            poly_str = raw
+        pairs = [pt.strip().split() for pt in poly_str.split(',') if pt.strip()]
+        lngs = [float(p[0]) for p in pairs]
+        lats = [float(p[1]) for p in pairs]
+        MIN_LNG, MAX_LNG = min(lngs), max(lngs)
+        MIN_LAT, MAX_LAT = min(lats), max(lats)
+    except (ValueError, IndexError):
+        print("Couldn't parse that — make sure you copied the full URL from the Network tab.")
         sys.exit()
     label = input("Label for output files (e.g. 'oak_cliff_block1'): ").strip()
     if not label:
@@ -300,12 +316,15 @@ print(f"In bounding box: {len(dcad_box)}")
 
 # ── Step 6: join values, flag on/off market ───────────────────────────────────
 
-land_cols = land.groupby('ACCOUNT_NUM').first()[['ZONING','FRONT_DIM','DEPTH_DIM','AREA_SIZE']].reset_index()
+land_cols = land.groupby('ACCOUNT_NUM').first()[['ZONING','FRONT_DIM','DEPTH_DIM','AREA_SIZE','AREA_UOM_DESC']].reset_index()
 dcad_box = dcad_box.merge(apprl[['ACCOUNT_NUM','LAND_VAL','IMPR_VAL','TOT_VAL','ISD_JURIS_DESC','SPTD_CODE']], on='ACCOUNT_NUM', how='left')
 dcad_box = dcad_box.merge(res[['ACCOUNT_NUM','YR_BUILT','TOT_LIVING_AREA_SF','TOT_MAIN_SF']], on='ACCOUNT_NUM', how='left')
 dcad_box = dcad_box.merge(land_cols, on='ACCOUNT_NUM', how='left')
 for col in ['LAND_VAL','IMPR_VAL','TOT_VAL','YR_BUILT','TOT_LIVING_AREA_SF','TOT_MAIN_SF','LAT','LNG','FRONT_DIM','DEPTH_DIM','AREA_SIZE']:
     dcad_box[col] = pd.to_numeric(dcad_box[col], errors='coerce')
+# Normalize AREA_SIZE to square feet regardless of source unit
+acre_mask = dcad_box['AREA_UOM_DESC'].str.upper().str.strip() == 'ACRE'
+dcad_box.loc[acre_mask, 'AREA_SIZE'] = dcad_box.loc[acre_mask, 'AREA_SIZE'] * 43560
 
 SPTD_LABELS = {
     'A11': 'Single Family Residences',      'A12': 'Single Family Residences',
@@ -372,14 +391,19 @@ for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
         'on_redfin': bool(row['ON_REDFIN']),
         'addr':      str(row['PROPERTY_ADDRESS']),
         'owner':     str(row['OWNER_NAME1'] or ''),
-        'land_val':  f"${row['LAND_VAL']:,.0f}"            if pd.notna(row['LAND_VAL'])              else 'N/A',
-        'impr_val':  f"${row['IMPR_VAL']:,.0f}"            if pd.notna(row['IMPR_VAL'])              else 'N/A',
-        'tot_val':   f"${row['TOT_VAL']:,.0f}"             if pd.notna(row['TOT_VAL'])               else 'N/A',
-        'land_pct':  f"{row['LAND_PCT']:.1f}%"             if pd.notna(row['LAND_PCT'])              else 'N/A',
-        'yr_built':  str(int(row['YR_BUILT']))              if pd.notna(row['YR_BUILT']) and row['YR_BUILT'] > 0 else 'N/A',
-        'sqft':      f"{int(row['TOT_LIVING_AREA_SF']):,}"  if pd.notna(row['TOT_LIVING_AREA_SF']) and row['TOT_LIVING_AREA_SF'] > 0 else 'N/A',
-        'lat':       float(row['LAT']),
-        'lng':       float(row['LNG']),
+        'land_val':   f"${row['LAND_VAL']:,.0f}"            if pd.notna(row['LAND_VAL'])              else 'N/A',
+        'tot_val':    f"${row['TOT_VAL']:,.0f}"             if pd.notna(row['TOT_VAL'])               else 'N/A',
+        'land_pct':   f"{row['LAND_PCT']:.1f}%"             if pd.notna(row['LAND_PCT'])              else 'N/A',
+        'lot_acres':  f"{row['AREA_SIZE']/43560:.2f} ac"    if pd.notna(row['AREA_SIZE']) and row['AREA_SIZE'] > 0 else 'N/A',
+        'frontage':   f"{int(row['FRONT_DIM'])} ft"         if pd.notna(row['FRONT_DIM']) and row['FRONT_DIM'] > 0 else 'N/A',
+        'depth':      f"{int(row['DEPTH_DIM'])} ft"         if pd.notna(row['DEPTH_DIM']) and row['DEPTH_DIM'] > 0 else 'N/A',
+        'state_code': str(row['STATE_CODE']).strip()        if pd.notna(row['STATE_CODE'])            else 'N/A',
+        'zoning':     str(row['ZONING']).strip()            if pd.notna(row['ZONING'])                else 'N/A',
+        'school':     str(row['ISD_JURIS_DESC']).strip()    if pd.notna(row['ISD_JURIS_DESC'])        else 'N/A',
+        'yr_built':   str(int(row['YR_BUILT']))              if pd.notna(row['YR_BUILT']) and row['YR_BUILT'] > 0 else 'N/A',
+        'sqft':       f"{int(row['TOT_LIVING_AREA_SF']):,}"  if pd.notna(row['TOT_LIVING_AREA_SF']) and row['TOT_LIVING_AREA_SF'] > 0 else 'N/A',
+        'lat':        float(row['LAT']),
+        'lng':        float(row['LNG']),
     }
     if acct in poly_map:
         rings = [[[pt[1], pt[0]] for pt in ring] for ring in poly_map[acct]]
@@ -421,9 +445,14 @@ function makePopup(p) {{
     '<span style="color:' + color + ';font-weight:bold">' + status + '</span><br><br>' +
     '<b>Owner:</b> ' + p.owner + '<br>' +
     '<b>Land Value:</b> ' + p.land_val + '<br>' +
-    '<b>Improvement Value:</b> ' + p.impr_val + '<br>' +
     '<b>Total Value:</b> ' + p.tot_val + '<br>' +
     '<b>Land % of Total:</b> ' + p.land_pct + '<br>' +
+    '<b>Lot Size:</b> ' + p.lot_acres + '<br>' +
+    '<b>Frontage:</b> ' + p.frontage + '<br>' +
+    '<b>Depth:</b> ' + p.depth + '<br>' +
+    '<b>State Code:</b> ' + p.state_code + '<br>' +
+    '<b>Zoning:</b> ' + p.zoning + '<br>' +
+    '<b>School District:</b> ' + p.school + '<br>' +
     '<b>Year Built:</b> ' + p.yr_built + '<br>' +
     '<b>Sq Ft:</b> ' + p.sqft;
 }}
