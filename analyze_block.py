@@ -296,7 +296,7 @@ if coord_map is not None:
     in_box   = {a: (lat, lng) for a, (lat, lng) in coord_map.items()
                 if MIN_LAT <= lat <= MAX_LAT and MIN_LNG <= lng <= MAX_LNG}
     acct_set = set(in_box.keys())
-    dcad     = acct[acct['DIVISION_CD'] == 'RES'].copy()
+    dcad     = acct[acct['DIVISION_CD'].isin(['RES', 'COM'])].copy()
     acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
     dcad      = dcad[acct_keys.isin(acct_set)].copy()
     acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
@@ -310,7 +310,7 @@ else:
     print("Shapefile not found — falling back to street-name filter + Census geocoder...")
     redfin_zips = set(df_redfin['ZIP OR POSTAL CODE'].dropna().astype(str).str[:5].unique()) if 'ZIP OR POSTAL CODE' in df_redfin.columns else {'75229', '75230'}
     dcad = acct[
-        (acct['DIVISION_CD'] == 'RES') &
+        (acct['DIVISION_CD'].isin(['RES', 'COM'])) &
         (acct['PROPERTY_ZIPCODE'].str[:5].isin(redfin_zips)) &
         (acct['FULL_STREET_NAME'].isin(streets_clean))
     ].copy()
@@ -411,12 +411,14 @@ sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.colum
 on_count     = int(dcad_box['ON_REDFIN'].sum())
 multi_count  = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['B11','B12','A14'])).sum())
 vacant_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['C11','C12'])).sum())
-off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count
+comm_count   = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['F10','F11'])).sum())
+off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count - comm_count
 print(f"\nResults for {label}:")
 print(f"  Active listings:   {on_count}")
 print(f"  Off market:        {off_sf_count}")
 print(f"  Multifamily:       {multi_count}")
 print(f"  Vacant lots:       {vacant_count}")
+print(f"  Commercial:        {comm_count}")
 print(f"  Total:             {len(out)}")
 print(f"\nSaved: {csv_file}")
 
@@ -434,6 +436,8 @@ for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
         prop_type = 'multifamily'
     elif sptd in ('C11', 'C12'):
         prop_type = 'vacant'
+    elif sptd in ('F10', 'F11'):
+        prop_type = 'commercial'
     else:
         prop_type = 'single_family'
     props = {
@@ -492,18 +496,21 @@ function getColor(p) {{
   if (p.on_redfin)                    return '#e74c3c';
   if (p.prop_type === 'multifamily')  return '#8e44ad';
   if (p.prop_type === 'vacant')       return '#27ae60';
+  if (p.prop_type === 'commercial')   return '#e67e22';
   return '#2980b9';
 }}
 function getBorder(p) {{
   if (p.on_redfin)                    return '#c0392b';
   if (p.prop_type === 'multifamily')  return '#6c3483';
   if (p.prop_type === 'vacant')       return '#1e8449';
+  if (p.prop_type === 'commercial')   return '#d35400';
   return '#1a6a9a';
 }}
 function getStatus(p) {{
   if (p.on_redfin)                    return 'ACTIVE LISTING';
   if (p.prop_type === 'multifamily')  return 'MULTIFAMILY';
   if (p.prop_type === 'vacant')       return 'VACANT LOT';
+  if (p.prop_type === 'commercial')   return 'COMMERCIAL';
   return 'OFF MARKET';
 }}
 
@@ -558,7 +565,8 @@ legend.onAdd = () => {{
     '<span class="swatch" style="background:#e74c3c;border:1px solid #c0392b"></span>Active Listing ({on_count})<br>' +
     '<span class="swatch" style="background:#2980b9;border:1px solid #1a6a9a"></span>Off Market ({off_sf_count})<br>' +
     '<span class="swatch" style="background:#8e44ad;border:1px solid #6c3483"></span>Multifamily ({multi_count})<br>' +
-    '<span class="swatch" style="background:#27ae60;border:1px solid #1e8449"></span>Vacant Lot ({vacant_count})<br><br>' +
+    '<span class="swatch" style="background:#27ae60;border:1px solid #1e8449"></span>Vacant Lot ({vacant_count})<br>' +
+    '<span class="swatch" style="background:#e67e22;border:1px solid #d35400"></span>Commercial ({comm_count})<br><br>' +
     'Click any parcel for details.';
   return d;
 }};
