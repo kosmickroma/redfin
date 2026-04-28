@@ -166,12 +166,14 @@ def _load_parcel_polygons(dcad_dir, account_nums):
 
 # ── Step 1: get area ──────────────────────────────────────────────────────────
 
+sorted_neighborhoods = sorted(rt.DALLAS_NEIGHBORHOODS.keys())
+
 print("Available Dallas neighborhoods:")
-for n in sorted(rt.DALLAS_NEIGHBORHOODS.keys()):
-    print(f"  - {n.title()}")
+for i, n in enumerate(sorted_neighborhoods, 1):
+    print(f"  {i:2}. {n.title()}")
 
 print("\nHow do you want to define the area?")
-print("  1 - Type a neighborhood name")
+print("  1 - Pick a neighborhood from the list above")
 print("  2 - Load URL from saved .txt file")
 choice = input("\nChoice (1 or 2): ").strip()
 
@@ -237,7 +239,11 @@ if choice == '2':
     if not label:
         label = f"{MIN_LNG},{MIN_LAT},{MAX_LNG},{MAX_LAT}"
 else:
-    name = input("\nNeighborhood name: ").strip()
+    pick = input("\nEnter number or name: ").strip()
+    try:
+        name = sorted_neighborhoods[int(pick) - 1]
+    except (ValueError, IndexError):
+        name = pick
     matched, coords = rt.find_neighborhood(name)
     if not coords:
         print(f"Couldn't find '{name}'. Use option 2 to paste coordinates.")
@@ -413,7 +419,11 @@ out.to_csv(csv_file, index=False)
 
 sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.columns else pd.Series([''] * len(dcad_box), index=dcad_box.index)
 on_count     = int(dcad_box['ON_REDFIN'].sum())
-exempt_mask  = dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts) | sptd_col.isin(['X11'])
+GOVT_KEYWORDS = ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS', 'UNITED STATES',
+                 'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA']
+owner_upper  = dcad_box['OWNER_NAME1'].fillna('').str.upper()
+govt_mask    = owner_upper.apply(lambda o: any(k in o for k in GOVT_KEYWORDS))
+exempt_mask  = dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts) | sptd_col.isin(['X11']) | govt_mask
 off_mask     = ~dcad_box['ON_REDFIN']
 multi_count  = int((off_mask & ~exempt_mask & sptd_col.isin(['B11','B12','A14'])).sum())
 vacant_count = int((off_mask & ~exempt_mask & sptd_col.isin(['C11','C12'])).sum())
@@ -440,7 +450,10 @@ features = []
 for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
     acct = str(row['ACCOUNT_NUM']).strip()
     sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
-    if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11':
+    owner_up = str(row['OWNER_NAME1']).upper() if pd.notna(row.get('OWNER_NAME1')) else ''
+    is_govt  = any(k in owner_up for k in ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS',
+                                            'UNITED STATES', 'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA'])
+    if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11' or is_govt:
         prop_type = 'exempt'
     elif sptd in ('B11', 'B12', 'A14'):
         prop_type = 'multifamily'
