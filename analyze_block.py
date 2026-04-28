@@ -215,10 +215,14 @@ if choice == '2':
         sys.exit()
     print(f"URL loaded from {os.path.basename(url_file)}")
     try:
+        from urllib.parse import unquote_plus
         if 'user_poly=' in raw:
             poly_str = raw.split('user_poly=')[1].split('&')[0]
+        elif 'poly=' in raw:
+            poly_str = raw.split('poly=')[1].split('&')[0]
         else:
             poly_str = raw
+        poly_str = unquote_plus(poly_str)
         pairs = [pt.strip().split() for pt in poly_str.split(',') if pt.strip()]
         lngs = [float(p[0]) for p in pairs]
         lats = [float(p[1]) for p in pairs]
@@ -334,7 +338,9 @@ else:
     geo = pd.read_csv(io.StringIO(r.text), header=None,
                       names=['id','input_addr','match','match_type','matched_addr','coords','tiger_id','side'], dtype=str)
     geo = geo[geo['match'] == 'Match'].copy()
-    geo[['LNG','LAT']] = geo['coords'].str.split(',', expand=True).astype(float)
+    coords_split = geo['coords'].str.split(',', expand=True)
+    geo['LNG'] = pd.to_numeric(coords_split[0], errors='coerce')
+    geo['LAT'] = pd.to_numeric(coords_split[1], errors='coerce')
     geo['id'] = geo['id'].astype(str)
     dcad.index = dcad.index.astype(str)
     dcad = dcad.join(geo[['id','LAT','LNG']].set_index('id'), how='left')
