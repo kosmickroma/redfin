@@ -189,7 +189,7 @@ if choice == '2':
     print("     in the redfin folder — then come back here\n")
     # Read URL from a .txt file to avoid terminal special character issues with &.
     # Users save the URL to any named .txt file in the redfin folder, then pick it from a list.
-    script_dir = os.path.dirname(__file__)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     txt_files = [f for f in os.listdir(script_dir) if f.endswith('.txt')]
 
     if not txt_files:
@@ -277,7 +277,7 @@ df_redfin.to_csv(os.path.join(OUTPUT_DIR, f'redfin_{redfin_out}.csv'), index=Fal
 
 # ── Step 3: check DCAD is available ──────────────────────────────────────────
 
-required = ['ACCOUNT_INFO.CSV', 'ACCOUNT_APPRL_YEAR.CSV', 'RES_DETAIL.CSV']
+required = ['ACCOUNT_INFO.CSV', 'ACCOUNT_APPRL_YEAR.CSV', 'RES_DETAIL.CSV', 'LAND.CSV', 'ACCT_EXEMPT_VALUE.CSV']
 missing  = [f for f in required if not os.path.exists(os.path.join(DCAD_DIR, f))]
 if missing:
     print("DCAD data not found. Download from dallascad.org/dataproducts.aspx")
@@ -292,11 +292,11 @@ print("Loading parcel coordinates from DCAD shapefile...")
 coord_map = _load_parcel_coords(DCAD_DIR)
 
 print("Loading DCAD data...")
-acct  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str)
-apprl = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str)
-res   = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str)
-land  = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str)
-exempt_val = pd.read_csv(os.path.join(DCAD_DIR, 'ACCT_EXEMPT_VALUE.CSV'), dtype=str)
+acct  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str, encoding='latin-1')
+apprl = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str, encoding='latin-1')
+res   = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str, encoding='latin-1')
+land  = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str, encoding='latin-1')
+exempt_val = pd.read_csv(os.path.join(DCAD_DIR, 'ACCT_EXEMPT_VALUE.CSV'), dtype=str, encoding='latin-1')
 total_exempt_accts = set(
     exempt_val[exempt_val['EXEMPTION_CD'].str.strip() == '14']['ACCOUNT_NUM'].astype(str).str.strip()
 )
@@ -308,13 +308,14 @@ if coord_map is not None:
     acct_set = set(in_box.keys())
     dcad     = acct[acct['DIVISION_CD'].isin(['RES', 'COM'])].copy()
     acct_num  = dcad['ACCOUNT_NUM'].astype(str).str.strip()
-    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip()
+    has_gis   = 'GIS_PARCEL_ID' in dcad.columns
+    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip() if has_gis else acct_num
     # Primary match on ACCOUNT_NUM; fallback to GIS_PARCEL_ID for condo/unit accounts
     direct_match = acct_num.isin(acct_set)
     gis_match    = (~direct_match) & gis_id.isin(acct_set)
     dcad = dcad[direct_match | gis_match].copy()
     acct_num  = dcad['ACCOUNT_NUM'].astype(str).str.strip()
-    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip()
+    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip() if has_gis else acct_num
     # PARCEL_KEY is the shapefile key to use for coordinate + polygon lookup
     dcad['PARCEL_KEY'] = np.where(acct_num.isin(acct_set), acct_num, gis_id)
     dcad['LAT'] = dcad['PARCEL_KEY'].map(lambda k: in_box.get(k, (np.nan, np.nan))[0])
