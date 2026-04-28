@@ -290,6 +290,10 @@ acct  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str)
 apprl = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str)
 res   = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str)
 land  = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str)
+exempt_val = pd.read_csv(os.path.join(DCAD_DIR, 'ACCT_EXEMPT_VALUE.CSV'), dtype=str)
+total_exempt_accts = set(
+    exempt_val[exempt_val['EXEMPTION_CD'].str.strip() == '14']['ACCOUNT_NUM'].astype(str).str.strip()
+)
 
 if coord_map is not None:
     # Filter parcel coords to bounding box — get every account number in the area
@@ -409,11 +413,13 @@ out.to_csv(csv_file, index=False)
 
 sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.columns else pd.Series([''] * len(dcad_box), index=dcad_box.index)
 on_count     = int(dcad_box['ON_REDFIN'].sum())
-multi_count  = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['B11','B12','A14'])).sum())
-vacant_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['C11','C12'])).sum())
-comm_count   = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['F10','F11'])).sum())
-exempt_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['X11'])).sum())
-off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count - comm_count - exempt_count
+exempt_mask  = dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts) | sptd_col.isin(['X11'])
+off_mask     = ~dcad_box['ON_REDFIN']
+multi_count  = int((off_mask & ~exempt_mask & sptd_col.isin(['B11','B12','A14'])).sum())
+vacant_count = int((off_mask & ~exempt_mask & sptd_col.isin(['C11','C12'])).sum())
+comm_count   = int((off_mask & ~exempt_mask & sptd_col.isin(['F10','F11'])).sum())
+exempt_count = int((off_mask & exempt_mask).sum())
+off_sf_count = int(off_mask.sum()) - multi_count - vacant_count - comm_count - exempt_count
 print(f"\nResults for {label}:")
 print(f"  Active listings:   {on_count}")
 print(f"  Off market:        {off_sf_count}")
@@ -434,14 +440,14 @@ features = []
 for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
     acct = str(row['ACCOUNT_NUM']).strip()
     sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
-    if sptd in ('B11', 'B12', 'A14'):
+    if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11':
+        prop_type = 'exempt'
+    elif sptd in ('B11', 'B12', 'A14'):
         prop_type = 'multifamily'
     elif sptd in ('C11', 'C12'):
         prop_type = 'vacant'
     elif sptd in ('F10', 'F11'):
         prop_type = 'commercial'
-    elif sptd == 'X11':
-        prop_type = 'exempt'
     else:
         prop_type = 'single_family'
     props = {
