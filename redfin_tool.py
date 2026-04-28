@@ -41,6 +41,8 @@ def make_session():
     """Start a session and grab cookies from Redfin so requests don't get blocked."""
     session = requests.Session()
     session.headers.update({
+        # WARNING: This is a Linux user-agent. If Redfin requests start failing on
+        # Windows, change 'X11; Linux x86_64' to 'Windows NT 10.0; Win64; x64' here.
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.redfin.com/city/30794/TX/Dallas',
     })
