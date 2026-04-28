@@ -307,11 +307,18 @@ if coord_map is not None:
                 if MIN_LAT <= lat <= MAX_LAT and MIN_LNG <= lng <= MAX_LNG}
     acct_set = set(in_box.keys())
     dcad     = acct[acct['DIVISION_CD'].isin(['RES', 'COM'])].copy()
-    acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
-    dcad      = dcad[acct_keys.isin(acct_set)].copy()
-    acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
-    dcad['LAT'] = acct_keys.map(lambda a: in_box.get(a, (np.nan, np.nan))[0])
-    dcad['LNG'] = acct_keys.map(lambda a: in_box.get(a, (np.nan, np.nan))[1])
+    acct_num  = dcad['ACCOUNT_NUM'].astype(str).str.strip()
+    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip()
+    # Primary match on ACCOUNT_NUM; fallback to GIS_PARCEL_ID for condo/unit accounts
+    direct_match = acct_num.isin(acct_set)
+    gis_match    = (~direct_match) & gis_id.isin(acct_set)
+    dcad = dcad[direct_match | gis_match].copy()
+    acct_num  = dcad['ACCOUNT_NUM'].astype(str).str.strip()
+    gis_id    = dcad['GIS_PARCEL_ID'].astype(str).str.strip()
+    # PARCEL_KEY is the shapefile key to use for coordinate + polygon lookup
+    dcad['PARCEL_KEY'] = np.where(acct_num.isin(acct_set), acct_num, gis_id)
+    dcad['LAT'] = dcad['PARCEL_KEY'].map(lambda k: in_box.get(k, (np.nan, np.nan))[0])
+    dcad['LNG'] = dcad['PARCEL_KEY'].map(lambda k: in_box.get(k, (np.nan, np.nan))[1])
     print(f"DCAD candidates: {len(dcad)}")
     dcad_box = dcad.dropna(subset=['LAT', 'LNG']).copy()
     print(f"In bounding box: {len(dcad_box)}")
@@ -449,12 +456,12 @@ print(f"\nSaved: {csv_file}")
 # ── Step 8: build map ─────────────────────────────────────────────────────────
 
 print("Loading parcel outlines for map...")
-poly_map = _load_parcel_polygons(DCAD_DIR, dcad_box['ACCOUNT_NUM'].astype(str).str.strip())
+poly_map = _load_parcel_polygons(DCAD_DIR, dcad_box['PARCEL_KEY'] if 'PARCEL_KEY' in dcad_box.columns else dcad_box['ACCOUNT_NUM'].astype(str).str.strip())
 print(f"Polygon outlines: {len(poly_map)} parcels")
 
 features = []
 for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
-    acct = str(row['ACCOUNT_NUM']).strip()
+    acct = str(row['PARCEL_KEY']).strip() if 'PARCEL_KEY' in dcad_box.columns else str(row['ACCOUNT_NUM']).strip()
     sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
     owner_up    = str(row['OWNER_NAME1']).upper() if pd.notna(row.get('OWNER_NAME1')) else ''
     is_non_target = any(k in owner_up for k in NON_TARGET_KEYWORDS)
