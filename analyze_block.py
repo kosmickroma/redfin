@@ -412,13 +412,15 @@ on_count     = int(dcad_box['ON_REDFIN'].sum())
 multi_count  = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['B11','B12','A14'])).sum())
 vacant_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['C11','C12'])).sum())
 comm_count   = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['F10','F11'])).sum())
-off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count - comm_count
+exempt_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['X11'])).sum())
+off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count - comm_count - exempt_count
 print(f"\nResults for {label}:")
 print(f"  Active listings:   {on_count}")
 print(f"  Off market:        {off_sf_count}")
 print(f"  Multifamily:       {multi_count}")
 print(f"  Vacant lots:       {vacant_count}")
 print(f"  Commercial:        {comm_count}")
+print(f"  Exempt:            {exempt_count}")
 print(f"  Total:             {len(out)}")
 print(f"\nSaved: {csv_file}")
 
@@ -438,6 +440,8 @@ for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
         prop_type = 'vacant'
     elif sptd in ('F10', 'F11'):
         prop_type = 'commercial'
+    elif sptd == 'X11':
+        prop_type = 'exempt'
     else:
         prop_type = 'single_family'
     props = {
@@ -497,6 +501,7 @@ function getColor(p) {{
   if (p.prop_type === 'multifamily')  return '#8e44ad';
   if (p.prop_type === 'vacant')       return '#27ae60';
   if (p.prop_type === 'commercial')   return '#e67e22';
+  if (p.prop_type === 'exempt')       return '#95a5a6';
   return '#2980b9';
 }}
 function getBorder(p) {{
@@ -504,6 +509,7 @@ function getBorder(p) {{
   if (p.prop_type === 'multifamily')  return '#6c3483';
   if (p.prop_type === 'vacant')       return '#1e8449';
   if (p.prop_type === 'commercial')   return '#d35400';
+  if (p.prop_type === 'exempt')       return '#7f8c8d';
   return '#1a6a9a';
 }}
 function getStatus(p) {{
@@ -511,6 +517,7 @@ function getStatus(p) {{
   if (p.prop_type === 'multifamily')  return 'MULTIFAMILY';
   if (p.prop_type === 'vacant')       return 'VACANT LOT';
   if (p.prop_type === 'commercial')   return 'COMMERCIAL';
+  if (p.prop_type === 'exempt')       return 'EXEMPT (church/school/nonprofit)';
   return 'OFF MARKET';
 }}
 
@@ -566,7 +573,8 @@ legend.onAdd = () => {{
     '<span class="swatch" style="background:#2980b9;border:1px solid #1a6a9a"></span>Off Market ({off_sf_count})<br>' +
     '<span class="swatch" style="background:#8e44ad;border:1px solid #6c3483"></span>Multifamily ({multi_count})<br>' +
     '<span class="swatch" style="background:#27ae60;border:1px solid #1e8449"></span>Vacant Lot ({vacant_count})<br>' +
-    '<span class="swatch" style="background:#e67e22;border:1px solid #d35400"></span>Commercial ({comm_count})<br><br>' +
+    '<span class="swatch" style="background:#e67e22;border:1px solid #d35400"></span>Commercial ({comm_count})<br>' +
+    '<span class="swatch" style="background:#95a5a6;border:1px solid #7f8c8d"></span>Exempt / Church / School ({exempt_count})<br><br>' +
     'Click any parcel for details.';
   return d;
 }};
