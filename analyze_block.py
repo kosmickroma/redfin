@@ -419,11 +419,17 @@ out.to_csv(csv_file, index=False)
 
 sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.columns else pd.Series([''] * len(dcad_box), index=dcad_box.index)
 on_count     = int(dcad_box['ON_REDFIN'].sum())
-GOVT_KEYWORDS = ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS', 'UNITED STATES',
-                 'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA']
+NON_TARGET_KEYWORDS = ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS', 'UNITED STATES',
+                       'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA',
+                       'HOMEOWNER', 'OWNERS ASSOC', ' HOA', 'CIVIC ASSOC',
+                       'COMMUNITY ASSOC', 'PROPERTY OWNERS']
 owner_upper  = dcad_box['OWNER_NAME1'].fillna('').str.upper()
-govt_mask    = owner_upper.apply(lambda o: any(k in o for k in GOVT_KEYWORDS))
-exempt_mask  = dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts) | sptd_col.isin(['X11']) | govt_mask
+non_target_owner = owner_upper.apply(lambda o: any(k in o for k in NON_TARGET_KEYWORDS))
+nominal_val  = pd.to_numeric(dcad_box['TOT_VAL'] if 'TOT_VAL' in dcad_box.columns else pd.Series(dtype=float), errors='coerce').fillna(0) <= 500
+exempt_mask  = (dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts)
+                | sptd_col.isin(['X11'])
+                | non_target_owner
+                | (nominal_val & sptd_col.isin(['C11', 'C12'])))
 off_mask     = ~dcad_box['ON_REDFIN']
 multi_count  = int((off_mask & ~exempt_mask & sptd_col.isin(['B11','B12','A14'])).sum())
 vacant_count = int((off_mask & ~exempt_mask & sptd_col.isin(['C11','C12'])).sum())
@@ -450,10 +456,11 @@ features = []
 for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
     acct = str(row['ACCOUNT_NUM']).strip()
     sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
-    owner_up = str(row['OWNER_NAME1']).upper() if pd.notna(row.get('OWNER_NAME1')) else ''
-    is_govt  = any(k in owner_up for k in ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS',
-                                            'UNITED STATES', 'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA'])
-    if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11' or is_govt:
+    owner_up    = str(row['OWNER_NAME1']).upper() if pd.notna(row.get('OWNER_NAME1')) else ''
+    is_non_target = any(k in owner_up for k in NON_TARGET_KEYWORDS)
+    tot_val     = pd.to_numeric(row.get('TOT_VAL'), errors='coerce') or 0
+    is_nominal  = tot_val <= 500 and sptd in ('C11', 'C12')
+    if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11' or is_non_target or is_nominal:
         prop_type = 'exempt'
     elif sptd in ('B11', 'B12', 'A14'):
         prop_type = 'multifamily'
