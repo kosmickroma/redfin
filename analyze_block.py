@@ -394,11 +394,15 @@ SPTD_LABELS = {
 
 dcad_box['PROPERTY_ADDRESS'] = (dcad_box['STREET_NUM'] + ' ' + dcad_box['FULL_STREET_NAME']).str.strip().str.upper()
 dcad_box['LAND_PCT']    = (dcad_box['LAND_VAL'] / dcad_box['TOT_VAL'] * 100).round(1)
-# Only flag ON_REDFIN for addresses with a single DCAD account — multi-unit buildings
-# (condos, apartments) share one base address across many accounts and we can't
-# reliably match individual units to Redfin listings, so we leave them as off-market.
-single_addr = dcad_box['PROPERTY_ADDRESS'].map(dcad_box['PROPERTY_ADDRESS'].value_counts() == 1)
-dcad_box['ON_REDFIN'] = dcad_box['PROPERTY_ADDRESS'].isin(redfin_addresses) & single_addr
+# Only flag ON_REDFIN for accounts that matched the shapefile directly via ACCOUNT_NUM.
+# Condo/unit accounts come in via GIS_PARCEL_ID fallback (PARCEL_KEY != ACCOUNT_NUM)
+# and share a base address with all other units in the building — flagging them would
+# mark every unit in a building red whenever any one unit appears on Redfin.
+if 'PARCEL_KEY' in dcad_box.columns:
+    direct_match = dcad_box['PARCEL_KEY'] == dcad_box['ACCOUNT_NUM'].astype(str).str.strip()
+else:
+    direct_match = pd.Series(True, index=dcad_box.index)
+dcad_box['ON_REDFIN'] = dcad_box['PROPERTY_ADDRESS'].isin(redfin_addresses) & direct_match
 dcad_box['SUBDIVISION'] = dcad_box['LEGAL1'].fillna('').str.strip()
 dcad_box['LEGAL_DESC']  = dcad_box[['LEGAL1','LEGAL2','LEGAL3','LEGAL4','LEGAL5']].fillna('').agg(' '.join, axis=1).str.strip()
 dcad_box['STATE_CODE']  = dcad_box['SPTD_CODE'].map(SPTD_LABELS).fillna(dcad_box['SPTD_CODE'])
