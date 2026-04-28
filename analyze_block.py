@@ -280,51 +280,52 @@ if missing:
     print(f"\nRedfin data saved to redfin_{redfin_out}.csv")
     sys.exit()
 
-# ── Step 4: filter DCAD ───────────────────────────────────────────────────────
-
-print("Loading DCAD data...")
-acct   = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str)
-apprl  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str)
-res    = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str)
-land   = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str)
-
-# Get zip codes from Redfin pull
-redfin_zips = set(df_redfin['ZIP OR POSTAL CODE'].dropna().astype(str).str[:5].unique()) if 'ZIP OR POSTAL CODE' in df_redfin.columns else {'75229','75230'}
-
-dcad = acct[
-    (acct['DIVISION_CD'] == 'RES') &
-    (acct['PROPERTY_ZIPCODE'].str[:5].isin(redfin_zips)) &
-    (acct['FULL_STREET_NAME'].isin(streets_clean))
-].copy()
-
-dcad['STREET_NUM_INT'] = pd.to_numeric(dcad['STREET_NUM'], errors='coerce')
-# Get street number range from Redfin addresses
-nums = []
-for addr in redfin_addresses:
-    try:
-        nums.append(int(addr.split()[0]))
-    except:
-        pass
-if nums:
-    num_min = max(0, min(nums) - 200)
-    num_max = max(nums) + 200
-    dcad = dcad[(dcad['STREET_NUM_INT'] >= num_min) & (dcad['STREET_NUM_INT'] <= num_max)].copy()
-
-print(f"DCAD candidates: {len(dcad)}")
-
-# ── Step 5: get coordinates ────────────────────────────────────────────────────
+# ── Steps 4-5: load parcel coords then filter DCAD by bounding box ────────────
 
 print("Loading parcel coordinates from DCAD shapefile...")
 coord_map = _load_parcel_coords(DCAD_DIR)
 
+print("Loading DCAD data...")
+acct  = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_INFO.CSV'), dtype=str)
+apprl = pd.read_csv(os.path.join(DCAD_DIR, 'ACCOUNT_APPRL_YEAR.CSV'), dtype=str)
+res   = pd.read_csv(os.path.join(DCAD_DIR, 'RES_DETAIL.CSV'), dtype=str)
+land  = pd.read_csv(os.path.join(DCAD_DIR, 'LAND.CSV'), dtype=str)
+
 if coord_map is not None:
-    accts = dcad['ACCOUNT_NUM'].astype(str).str.strip()
-    dcad['LAT'] = accts.map(lambda a: coord_map.get(a, (np.nan, np.nan))[0])
-    dcad['LNG'] = accts.map(lambda a: coord_map.get(a, (np.nan, np.nan))[1])
-    matched = dcad['LAT'].notna().sum()
-    print(f"Parcel shapefile: {matched}/{len(dcad)} matched")
+    # Filter parcel coords to bounding box — get every account number in the area
+    in_box   = {a: (lat, lng) for a, (lat, lng) in coord_map.items()
+                if MIN_LAT <= lat <= MAX_LAT and MIN_LNG <= lng <= MAX_LNG}
+    acct_set = set(in_box.keys())
+    dcad     = acct[acct['DIVISION_CD'] == 'RES'].copy()
+    acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
+    dcad      = dcad[acct_keys.isin(acct_set)].copy()
+    acct_keys = dcad['ACCOUNT_NUM'].astype(str).str.strip()
+    dcad['LAT'] = acct_keys.map(lambda a: in_box.get(a, (np.nan, np.nan))[0])
+    dcad['LNG'] = acct_keys.map(lambda a: in_box.get(a, (np.nan, np.nan))[1])
+    print(f"DCAD candidates: {len(dcad)}")
+    dcad_box = dcad.dropna(subset=['LAT', 'LNG']).copy()
+    print(f"In bounding box: {len(dcad_box)}")
 else:
-    print("Shapefile not found — falling back to Census batch geocoder...")
+    # Fallback: street-name filter + Census geocoder
+    print("Shapefile not found — falling back to street-name filter + Census geocoder...")
+    redfin_zips = set(df_redfin['ZIP OR POSTAL CODE'].dropna().astype(str).str[:5].unique()) if 'ZIP OR POSTAL CODE' in df_redfin.columns else {'75229', '75230'}
+    dcad = acct[
+        (acct['DIVISION_CD'] == 'RES') &
+        (acct['PROPERTY_ZIPCODE'].str[:5].isin(redfin_zips)) &
+        (acct['FULL_STREET_NAME'].isin(streets_clean))
+    ].copy()
+    dcad['STREET_NUM_INT'] = pd.to_numeric(dcad['STREET_NUM'], errors='coerce')
+    nums = []
+    for addr in redfin_addresses:
+        try:
+            nums.append(int(addr.split()[0]))
+        except:
+            pass
+    if nums:
+        num_min = max(0, min(nums) - 200)
+        num_max = max(nums) + 200
+        dcad = dcad[(dcad['STREET_NUM_INT'] >= num_min) & (dcad['STREET_NUM_INT'] <= num_max)].copy()
+    print(f"DCAD candidates: {len(dcad)}")
     rows = [
         f'{idx},"{row["STREET_NUM"]} {row["FULL_STREET_NAME"]}","Dallas","TX","{str(row["PROPERTY_ZIPCODE"])[:5]}"'
         for idx, row in dcad.iterrows()
@@ -343,13 +344,12 @@ else:
     geo['LAT'] = pd.to_numeric(coords_split[1], errors='coerce')
     geo['id'] = geo['id'].astype(str)
     dcad.index = dcad.index.astype(str)
-    dcad = dcad.join(geo[['id','LAT','LNG']].set_index('id'), how='left')
-
-dcad_box = dcad[
-    (dcad['LAT'] >= MIN_LAT) & (dcad['LAT'] <= MAX_LAT) &
-    (dcad['LNG'] >= MIN_LNG) & (dcad['LNG'] <= MAX_LNG)
-].copy()
-print(f"In bounding box: {len(dcad_box)}")
+    dcad = dcad.join(geo[['id', 'LAT', 'LNG']].set_index('id'), how='left')
+    dcad_box = dcad[
+        (dcad['LAT'] >= MIN_LAT) & (dcad['LAT'] <= MAX_LAT) &
+        (dcad['LNG'] >= MIN_LNG) & (dcad['LNG'] <= MAX_LNG)
+    ].copy()
+    print(f"In bounding box: {len(dcad_box)}")
 
 # ── Step 6: join values, flag on/off market ───────────────────────────────────
 
@@ -395,23 +395,28 @@ out = dcad_box[['PROPERTY_ADDRESS','ON_REDFIN','OWNER_NAME1','OWNER_ADDRESS_LINE
                 'TOT_LIVING_AREA_SF','TOT_MAIN_SF',
                 'STATE_CODE','ZONING','AREA_SIZE','FRONT_DIM','DEPTH_DIM',
                 'ISD_JURIS_DESC','NBHD_CD','SUBDIVISION','LEGAL_DESC','LAT','LNG','GOOGLE_MAPS']].copy()
-out.columns = ['Property Address','Listed on Redfin','Owner Name','Owner Mailing Address',
+out.columns = ['Property Address','Status','Owner Name','Owner Mailing Address',
                'Owner City','Owner State','Owner Zip',
                'Land Value','Improvement Value','Total Value','Land % of Total',
                'Year Built','Living Area (sq ft)','Total Structure Area (sq ft)',
                'State Code','Zoning','Lot Size (sq ft)','Frontage (ft)','Depth (ft)',
                'School District','Neighborhood Code','Subdivision','Legal Description','Latitude','Longitude','Google Maps Link']
-out['Listed on Redfin'] = out['Listed on Redfin'].map({True:'YES', False:'NO'})
+out['Status'] = out['Status'].map({True: 'Active', False: 'Off Market'})
 out = out.sort_values('Property Address')
 
 csv_file = os.path.join(OUTPUT_DIR, f'block_analysis_{redfin_out}.csv')
 out.to_csv(csv_file, index=False)
 
-on  = (out['Listed on Redfin']=='YES').sum()
-off = (out['Listed on Redfin']=='NO').sum()
+sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.columns else pd.Series([''] * len(dcad_box), index=dcad_box.index)
+on_count     = int(dcad_box['ON_REDFIN'].sum())
+multi_count  = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['B11','B12','A14'])).sum())
+vacant_count = int((~dcad_box['ON_REDFIN'] & sptd_col.isin(['C11','C12'])).sum())
+off_sf_count = int((~dcad_box['ON_REDFIN']).sum()) - multi_count - vacant_count
 print(f"\nResults for {label}:")
-print(f"  Listed on Redfin:  {on}")
-print(f"  Off market:        {off}")
+print(f"  Active listings:   {on_count}")
+print(f"  Off market:        {off_sf_count}")
+print(f"  Multifamily:       {multi_count}")
+print(f"  Vacant lots:       {vacant_count}")
 print(f"  Total:             {len(out)}")
 print(f"\nSaved: {csv_file}")
 
@@ -424,8 +429,16 @@ print(f"Polygon outlines: {len(poly_map)} parcels")
 features = []
 for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
     acct = str(row['ACCOUNT_NUM']).strip()
+    sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
+    if sptd in ('B11', 'B12', 'A14'):
+        prop_type = 'multifamily'
+    elif sptd in ('C11', 'C12'):
+        prop_type = 'vacant'
+    else:
+        prop_type = 'single_family'
     props = {
-        'on_redfin': bool(row['ON_REDFIN']),
+        'on_redfin':  bool(row['ON_REDFIN']),
+        'prop_type':  prop_type,
         'addr':      str(row['PROPERTY_ADDRESS']),
         'owner':     str(row['OWNER_NAME1'] or ''),
         'land_val':   f"${row['LAND_VAL']:,.0f}"            if pd.notna(row['LAND_VAL'])              else 'N/A',
@@ -475,9 +488,28 @@ L.tileLayer('https://{{s}}.basemaps.cartocdn.com/light_all/{{z}}/{{x}}/{{y}}{{r}
   attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
 }}).addTo(map);
 
+function getColor(p) {{
+  if (p.on_redfin)                    return '#e74c3c';
+  if (p.prop_type === 'multifamily')  return '#8e44ad';
+  if (p.prop_type === 'vacant')       return '#27ae60';
+  return '#2980b9';
+}}
+function getBorder(p) {{
+  if (p.on_redfin)                    return '#c0392b';
+  if (p.prop_type === 'multifamily')  return '#6c3483';
+  if (p.prop_type === 'vacant')       return '#1e8449';
+  return '#1a6a9a';
+}}
+function getStatus(p) {{
+  if (p.on_redfin)                    return 'ACTIVE LISTING';
+  if (p.prop_type === 'multifamily')  return 'MULTIFAMILY';
+  if (p.prop_type === 'vacant')       return 'VACANT LOT';
+  return 'OFF MARKET';
+}}
+
 function makePopup(p) {{
-  const color = p.on_redfin ? '#e74c3c' : '#2980b9';
-  const status = p.on_redfin ? 'LISTED ON REDFIN' : 'OFF MARKET';
+  const color = getColor(p);
+  const status = getStatus(p);
   return '<b>' + p.addr + '</b><br>' +
     '<span style="color:' + color + ';font-weight:bold">' + status + '</span><br><br>' +
     '<b>Owner:</b> ' + p.owner + '<br>' +
@@ -497,23 +529,23 @@ function makePopup(p) {{
 L.geoJSON(geojson, {{
   style: function(f) {{
     if (f.geometry.type !== 'Polygon') return {{}};
-    const color = f.properties.on_redfin ? '#e74c3c' : '#2980b9';
-    return {{color: color, weight: 1.5, fillColor: color, fillOpacity: 0.12, opacity: 0.85}};
+    const c = getColor(f.properties); const b = getBorder(f.properties);
+    return {{color: b, weight: 1.5, fillColor: c, fillOpacity: 0.12, opacity: 0.85}};
   }},
   pointToLayer: function(f, latlng) {{
-    const color = f.properties.on_redfin ? '#e74c3c' : '#2980b9';
+    const c = getColor(f.properties); const b = getBorder(f.properties);
     return L.circleMarker(latlng, {{
       radius: f.properties.on_redfin ? 7 : 5,
-      fillColor: color, color: '#fff', weight: 1.5, opacity: 1, fillOpacity: 0.9
+      fillColor: c, color: b, weight: 1.5, opacity: 1, fillOpacity: 0.9
     }});
   }},
   onEachFeature: function(f, layer) {{
     layer.bindPopup(makePopup(f.properties));
     if (f.geometry.type === 'Polygon') {{
-      const color = f.properties.on_redfin ? '#e74c3c' : '#2980b9';
+      const c = getColor(f.properties); const b = getBorder(f.properties);
       L.circleMarker([f.properties.lat, f.properties.lng], {{
         radius: f.properties.on_redfin ? 5 : 3,
-        fillColor: color, color: '#fff', weight: 1, opacity: 1, fillOpacity: 0.95
+        fillColor: c, color: b, weight: 1, opacity: 1, fillOpacity: 0.95
       }}).bindPopup(makePopup(f.properties)).addTo(map);
     }}
   }}
@@ -523,8 +555,10 @@ const legend = L.control({{position: 'bottomright'}});
 legend.onAdd = () => {{
   const d = L.DomUtil.create('div', 'legend');
   d.innerHTML = '<b>{label}</b><br><br>' +
-    '<span class="swatch" style="background:#e74c3c;border:1px solid #c0392b"></span>Listed on Redfin ({on})<br>' +
-    '<span class="swatch" style="background:#2980b9;border:1px solid #1a6a9a"></span>Off Market ({off})<br><br>' +
+    '<span class="swatch" style="background:#e74c3c;border:1px solid #c0392b"></span>Active Listing ({on_count})<br>' +
+    '<span class="swatch" style="background:#2980b9;border:1px solid #1a6a9a"></span>Off Market ({off_sf_count})<br>' +
+    '<span class="swatch" style="background:#8e44ad;border:1px solid #6c3483"></span>Multifamily ({multi_count})<br>' +
+    '<span class="swatch" style="background:#27ae60;border:1px solid #1e8449"></span>Vacant Lot ({vacant_count})<br><br>' +
     'Click any parcel for details.';
   return d;
 }};
@@ -532,7 +566,7 @@ legend.addTo(map);
 </script></body></html>"""
 
 map_file = os.path.join(OUTPUT_DIR, f'map_{redfin_out}.html')
-with open(map_file, 'w') as f:
+with open(map_file, 'w', encoding='utf-8') as f:
     f.write(html)
 print(f"Map:   {map_file}")
 print("\nDone.")
