@@ -382,14 +382,18 @@ acre_mask = dcad_box['AREA_UOM_DESC'].str.upper().str.strip() == 'ACRE'
 dcad_box.loc[acre_mask, 'AREA_SIZE'] = dcad_box.loc[acre_mask, 'AREA_SIZE'] * 43560
 
 SPTD_LABELS = {
-    'A11': 'Single Family Residences',      'A12': 'Single Family Residences',
-    'A13': 'Mobile Homes',                  'A14': 'Quadruplex/Triplex',
-    'B11': 'Multifamily Residences',        'B12': 'Multifamily Residences',
-    'C11': 'Vacant Lots and Land Tracts',   'C12': 'Vacant Lots and Land Tracts',
-    'D11': 'Qualified Open-Space Land',     'E11': 'Farm and Ranch Improvements',
-    'F11': 'Commercial Real Property',      'F10': 'Commercial Real Property',
-    'L10': 'Business Personal Property',    'M31': 'Other Personal Property',
-    'O11': 'Residential Inventory',         'X11': 'Totally Exempt Property',
+    'A11': 'Single Family Residences',      'A12': 'Townhouses',
+    'A13': 'Condominiums',                  'A20': 'Mobile Home on Owners Land',
+    'B11': 'Apartments',                    'B12': 'Duplexes',
+    'C11': 'Vacant Lots/Tracts (SFR)',      'C12': 'Vacant Lots/Tracts (Commercial)',
+    'C13': 'Vacant Lots/Tracts (Industrial)','C14': 'Rural Vacant - Under 5 Acres',
+    'D10': 'Qualified Agricultural Land',   'E11': 'Ranch Improvements',
+    'E12': 'Farm Improvements',             'F10': 'Commercial Improvements',
+    'F20': 'Industrial Improvements',       'G10': 'Oil, Gas and Mineral Reserves',
+    'G30': 'Minerals, Non-Producing',       'J51': 'Railroad Corridor',
+    'L10': 'Commercial BPP',               'M31': 'Mobile Homes on Leased Spaces',
+    'M32': 'Mobile Homes for Sale',         'O10': 'Residential Inventory (Vacant)',
+    'O11': 'Residential Inventory (Improved)', 'X11': 'Totally Exempt Property',
 }
 
 dcad_box['PROPERTY_ADDRESS'] = (dcad_box['STREET_NUM'] + ' ' + dcad_box['FULL_STREET_NAME']).str.strip().str.upper()
@@ -448,8 +452,8 @@ exempt_mask  = (dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exemp
                 | (nominal_val & sptd_col.isin(['C11', 'C12'])))
 off_mask     = ~dcad_box['ON_REDFIN']
 multi_count  = int((off_mask & ~exempt_mask & sptd_col.isin(['B11','B12','A14'])).sum())
-vacant_count = int((off_mask & ~exempt_mask & sptd_col.isin(['C11','C12'])).sum())
-comm_count   = int((off_mask & ~exempt_mask & sptd_col.isin(['F10','F11'])).sum())
+vacant_count = int((off_mask & ~exempt_mask & sptd_col.isin(['C11'])).sum())
+comm_count   = int((off_mask & ~exempt_mask & sptd_col.isin(['C12','C13','F10','F20'])).sum())
 exempt_count = int((off_mask & exempt_mask).sum())
 off_sf_count = int(off_mask.sum()) - multi_count - vacant_count - comm_count - exempt_count
 print(f"\nResults for {label}:")
@@ -480,9 +484,9 @@ for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
         prop_type = 'exempt'
     elif sptd in ('B11', 'B12', 'A14'):
         prop_type = 'multifamily'
-    elif sptd in ('C11', 'C12'):
+    elif sptd == 'C11':
         prop_type = 'vacant'
-    elif sptd in ('F10', 'F11'):
+    elif sptd in ('C12', 'C13', 'F10', 'F20'):
         prop_type = 'commercial'
     else:
         prop_type = 'single_family'
