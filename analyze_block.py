@@ -172,7 +172,7 @@ for n in sorted(rt.DALLAS_NEIGHBORHOODS.keys()):
 
 print("\nHow do you want to define the area?")
 print("  1 - Type a neighborhood name")
-print("  2 - Paste user_poly from Redfin URL")
+print("  2 - Load URL from saved .txt file")
 choice = input("\nChoice (1 or 2): ").strip()
 
 if choice == '2':

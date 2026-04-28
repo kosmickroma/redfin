@@ -1,4 +1,8 @@
-dcad_data/
+dcad_data/*
+!dcad_data/.gitkeep
+!dcad_data/PARCEL_GEOM/
+dcad_data/PARCEL_GEOM/*
+!dcad_data/PARCEL_GEOM/.gitkeep
 output/
 docs/
 guides/
