@@ -425,13 +425,15 @@ out = dcad_box[['PROPERTY_ADDRESS','ON_REDFIN','OWNER_NAME1','OWNER_ADDRESS_LINE
                 'TOT_LIVING_AREA_SF','TOT_MAIN_SF',
                 'STATE_CODE','ZONING','AREA_SIZE','FRONT_DIM','DEPTH_DIM',
                 'ISD_JURIS_DESC','NBHD_CD','SUBDIVISION','LEGAL_DESC','LAT','LNG','GOOGLE_MAPS']].copy()
-out.columns = ['Property Address','Status','Owner Name','Owner Mailing Address',
+out.columns = ['Property Address','MLS Status','Owner Name','Owner Mailing Address',
                'Owner City','Owner State','Owner Zip',
                'Land Value','Improvement Value','Total Value','Land % of Total',
                'Year Built','Living Area (sq ft)','Total Structure Area (sq ft)',
                'State Code','Zoning','Lot Size (sq ft)','Frontage (ft)','Depth (ft)',
                'School District','Neighborhood Code','Subdivision','Legal Description','Latitude','Longitude','Google Maps Link']
-out['Status'] = out['Status'].map({True: 'Active', False: 'Off Market'})
+out['MLS Status'] = out['MLS Status'].map({True: 'Active', False: 'Off Market'})
+out.insert(out.columns.get_loc('Lot Size (sq ft)') + 1, 'Lot Size (acres)',
+           (out['Lot Size (sq ft)'] / 43560).round(3))
 out = out.sort_values('Property Address')
 
 csv_file = os.path.join(OUTPUT_DIR, f'block_analysis_{redfin_out}.csv')
@@ -439,12 +441,19 @@ out.to_csv(csv_file, index=False)
 
 sptd_col     = dcad_box['SPTD_CODE'].fillna('') if 'SPTD_CODE' in dcad_box.columns else pd.Series([''] * len(dcad_box), index=dcad_box.index)
 on_count     = int(dcad_box['ON_REDFIN'].sum())
-NON_TARGET_KEYWORDS = ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS', 'UNITED STATES',
-                       'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA',
-                       'HOMEOWNER', 'OWNERS ASSOC', ' HOA', 'CIVIC ASSOC',
-                       'COMMUNITY ASSOC', 'PROPERTY OWNERS']
+GOV_KEYWORDS = ['CITY OF DALLAS', 'DALLAS COUNTY', 'STATE OF TEXAS', 'UNITED STATES',
+                'TXDOT', 'TX DEPT', ' ISD', 'DISD', 'DART ', 'NTTA']
+HOA_KEYWORDS = ['HOMEOWNER', 'OWNERS ASSOC', ' HOA', 'CIVIC ASSOC',
+                'COMMUNITY ASSOC', 'PROPERTY OWNERS']
 owner_upper  = dcad_box['OWNER_NAME1'].fillna('').str.upper()
-non_target_owner = owner_upper.apply(lambda o: any(k in o for k in NON_TARGET_KEYWORDS))
+gov_match    = owner_upper.apply(lambda o: any(k in o for k in GOV_KEYWORDS))
+# HOA keyword match is suppressed for residential SPTD codes (A11/A12/A13/A20).
+# 'HOANG' (Vietnamese surname) contains the substring ' HOA' and would otherwise
+# mark hundreds of homeowners as exempt. Real HOA common areas are C11/F10/L10,
+# never A11/A12/A13 — the SPTD split is a clean discriminator.
+res_sptd     = sptd_col.isin(['A11', 'A12', 'A13', 'A20'])
+hoa_match    = owner_upper.apply(lambda o: any(k in o for k in HOA_KEYWORDS))
+non_target_owner = gov_match | (hoa_match & ~res_sptd)
 nominal_val  = pd.to_numeric(dcad_box['TOT_VAL'] if 'TOT_VAL' in dcad_box.columns else pd.Series(dtype=float), errors='coerce').fillna(0) <= 500
 exempt_mask  = (dcad_box['ACCOUNT_NUM'].astype(str).str.strip().isin(total_exempt_accts)
                 | sptd_col.isin(['X11'])
@@ -477,7 +486,8 @@ for _, row in dcad_box.dropna(subset=['LAT','LNG']).iterrows():
     acct = str(row['PARCEL_KEY']).strip() if 'PARCEL_KEY' in dcad_box.columns else str(row['ACCOUNT_NUM']).strip()
     sptd = str(row['SPTD_CODE']).strip() if 'SPTD_CODE' in dcad_box.columns and pd.notna(row.get('SPTD_CODE')) else ''
     owner_up    = str(row['OWNER_NAME1']).upper() if pd.notna(row.get('OWNER_NAME1')) else ''
-    is_non_target = any(k in owner_up for k in NON_TARGET_KEYWORDS)
+    is_non_target = (any(k in owner_up for k in GOV_KEYWORDS)
+                     or (any(k in owner_up for k in HOA_KEYWORDS) and sptd not in ('A11', 'A12', 'A13', 'A20')))
     tot_val     = pd.to_numeric(row.get('TOT_VAL'), errors='coerce') or 0
     is_nominal  = tot_val <= 500 and sptd in ('C11', 'C12')
     if str(row['ACCOUNT_NUM']).strip() in total_exempt_accts or sptd == 'X11' or is_non_target or is_nominal:
